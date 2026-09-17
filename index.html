@@ -8,9 +8,21 @@
 
 <div id="status">Starting...</div>
 
+<!-- React first -->
 <script
-  src="https://unpkg.com/@sigmacomputing/plugin@1.2.0/dist/umd/sigmacomputing-plugin.umd.js"
-></script>
+  crossorigin
+  src="https://unpkg.com/react@18/umd/react.production.min.js">
+</script>
+
+<script
+  crossorigin
+  src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js">
+</script>
+
+<!-- Sigma Plugin SDK -->
+<script
+  src="https://unpkg.com/@sigmacomputing/plugin@1.2.0/dist/umd/sigmacomputing-plugin.umd.js">
+</script>
 
 <script>
 const status = document.getElementById("status");
@@ -18,12 +30,12 @@ const status = document.getElementById("status");
 try {
 
   if (!window.SigmaPlugin) {
-    throw new Error("SigmaPlugin global did not load");
+    throw new Error("SigmaPlugin did not load");
   }
 
   if (typeof window.SigmaPlugin.initialize !== "function") {
     throw new Error(
-      "initialize missing. SDK properties: " +
+      "initialize still missing. SDK properties: " +
       Object.getOwnPropertyNames(window.SigmaPlugin).join(", ")
     );
   }
@@ -67,7 +79,7 @@ try {
   ]);
 
   status.innerHTML =
-    "<b>SUCCESS:</b> Sigma SDK connected.";
+    "<b>SUCCESS:</b> Sigma SDK connected and fields configured.";
 
 } catch (e) {
 
