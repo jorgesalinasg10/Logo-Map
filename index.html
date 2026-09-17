@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <script src="https://cdn.jsdelivr.net/npm/@sigmacomputing/plugin@1.3.2/dist/umd/sigmacomputing-plugin.umd.js"></script>
 
@@ -12,482 +12,58 @@
       width: 100%;
       height: 100%;
       font-family: Arial, sans-serif;
-      background: white;
     }
 
-    #chart {
+    #app {
       width: 100%;
       height: 100%;
-      min-height: 400px;
-    }
-
-    .message {
       display: flex;
-      height: 100%;
       align-items: center;
       justify-content: center;
       color: #666;
-      font-size: 14px;
-    }
-
-    .tooltip {
-      position: fixed;
-      display: none;
-      pointer-events: none;
-      background: rgba(20,20,20,.92);
-      color: white;
-      padding: 8px 10px;
-      border-radius: 5px;
-      font-size: 12px;
-      z-index: 1000;
-    }
-
-    svg {
-      width: 100%;
-      height: 100%;
-    }
-
-    .grid {
-      stroke: #e5e5e5;
-      stroke-width: 1;
-    }
-
-    .axis {
-      stroke: #888;
-      stroke-width: 1;
-    }
-
-    .tick {
-      fill: #666;
-      font-size: 11px;
-    }
-
-    .axis-title {
-      fill: #333;
-      font-size: 12px;
-      font-weight: 600;
-    }
-
-    .avg-line {
-      stroke: #777;
-      stroke-width: 1.5;
-      stroke-dasharray: 5 4;
-    }
-
-    .logo {
-      cursor: pointer;
-    }
-
-    .dot {
-      fill: #5b9bd5;
-      stroke: white;
-      stroke-width: 1;
     }
   </style>
 </head>
 
 <body>
 
-<div id="chart">
-  <div class="message">
-    Select a Sigma data source and map your fields.
-  </div>
+<div id="app">
+  Logo Scatter Plot ready. Select your data fields in Properties.
 </div>
 
-<div id="tooltip" class="tooltip"></div>
-
 <script>
+  const client = SigmaPlugin.initialize();
 
-const client = SigmaPlugin.initialize();
-
-client.config.configureEditorPanel([
-  {
-    name: "source",
-    type: "element",
-    label: "Data Source"
-  },
-  {
-    name: "score",
-    type: "column",
-    label: "Deal Score",
-    source: "source",
-    allowMultiple: false,
-    allowedTypes: ["number", "integer"]
-  },
-  {
-    name: "revenue",
-    type: "column",
-    label: "AAV Net",
-    source: "source",
-    allowMultiple: false,
-    allowedTypes: ["number", "integer"]
-  },
-  {
-    name: "company",
-    type: "column",
-    label: "Company Name",
-    source: "source",
-    allowMultiple: false
-  },
-  {
-    name: "logo",
-    type: "column",
-    label: "Logo URL",
-    source: "source",
-    allowMultiple: false,
-    allowedTypes: ["text", "link"]
-  }
-]);
-
-let config = {};
-let sigmaData = {};
-
-client.config.subscribe(newConfig => {
-  config = newConfig || {};
-  drawChart();
-});
-
-client.elements.subscribeToElementData(
-  "source",
-  data => {
-    sigmaData = data || {};
-    drawChart();
-  }
-);
-
-function getColumn(key) {
-  const id = config[key];
-
-  if (!id) return [];
-
-  if (Array.isArray(sigmaData[id])) {
-    return sigmaData[id];
-  }
-
-  return [];
-}
-
-function money(value) {
-  return new Intl.NumberFormat(
-    "en-US",
+  client.config.configureEditorPanel([
     {
-      style: "currency",
-      currency: "USD",
-      maximumFractionDigits: 0
+      name: "Data Source",
+      type: "element"
+    },
+    {
+      name: "Deal Score",
+      type: "column",
+      source: "Data Source",
+      allowMultiple: false
+    },
+    {
+      name: "AAV Net",
+      type: "column",
+      source: "Data Source",
+      allowMultiple: false
+    },
+    {
+      name: "Company Name",
+      type: "column",
+      source: "Data Source",
+      allowMultiple: false
+    },
+    {
+      name: "Logo URL",
+      type: "column",
+      source: "Data Source",
+      allowMultiple: false
     }
-  ).format(value);
-}
-
-function scoreFormat(value, percentage) {
-  if (percentage) {
-    return (value * 100).toFixed(0) + "%";
-  }
-
-  return value.toFixed(1);
-}
-
-function drawChart() {
-
-  const xValues = getColumn("score");
-  const yValues = getColumn("revenue");
-  const companies = getColumn("company");
-  const logos = getColumn("logo");
-
-  const container = document.getElementById("chart");
-
-  if (!xValues.length || !yValues.length) {
-    container.innerHTML =
-      '<div class="message">Choose your Sigma data source and map Deal Score and AAV Net.</div>';
-    return;
-  }
-
-  const points = [];
-
-  for (let i = 0; i < Math.min(xValues.length, yValues.length); i++) {
-
-    const x = Number(xValues[i]);
-    const y = Number(yValues[i]);
-
-    if (!Number.isFinite(x) || !Number.isFinite(y)) {
-      continue;
-    }
-
-    points.push({
-      x: x,
-      y: y,
-      company: companies[i] || "",
-      logo: logos[i] || ""
-    });
-  }
-
-  if (!points.length) return;
-
-  const width = 1000;
-  const height = 600;
-
-  const margin = {
-    top: 35,
-    right: 40,
-    bottom: 60,
-    left: 90
-  };
-
-  const plotWidth =
-    width - margin.left - margin.right;
-
-  const plotHeight =
-    height - margin.top - margin.bottom;
-
-  const xs = points.map(d => d.x);
-  const ys = points.map(d => d.y);
-
-  const percentage =
-    Math.max(...xs) <= 1.5;
-
-  let minX = Math.min(...xs);
-  let maxX = Math.max(...xs);
-
-  let maxY = Math.max(...ys);
-
-  const xPadding =
-    (maxX - minX || 1) * 0.08;
-
-  minX -= xPadding;
-  maxX += xPadding;
-
-  maxY *= 1.08;
-
-  function scaleX(v) {
-    return margin.left +
-      ((v - minX) / (maxX - minX)) *
-      plotWidth;
-  }
-
-  function scaleY(v) {
-    return margin.top +
-      plotHeight -
-      (v / maxY) *
-      plotHeight;
-  }
-
-  const avgX =
-    xs.reduce((a,b) => a+b, 0) /
-    xs.length;
-
-  const avgY =
-    ys.reduce((a,b) => a+b, 0) /
-    ys.length;
-
-  let html =
-    `<svg viewBox="0 0 ${width} ${height}">`;
-
-  const ySteps = 8;
-
-  for (let i = 0; i <= ySteps; i++) {
-
-    const value =
-      maxY * i / ySteps;
-
-    const y =
-      scaleY(value);
-
-    html += `
-      <line
-        class="grid"
-        x1="${margin.left}"
-        y1="${y}"
-        x2="${width-margin.right}"
-        y2="${y}"
-      />
-
-      <text
-        class="tick"
-        x="${margin.left-10}"
-        y="${y+4}"
-        text-anchor="end"
-      >
-        ${money(value)}
-      </text>
-    `;
-  }
-
-  const xSteps = 7;
-
-  for (let i = 0; i <= xSteps; i++) {
-
-    const value =
-      minX +
-      (maxX-minX) *
-      i/xSteps;
-
-    const x =
-      scaleX(value);
-
-    html += `
-      <line
-        class="grid"
-        x1="${x}"
-        y1="${margin.top}"
-        x2="${x}"
-        y2="${height-margin.bottom}"
-      />
-
-      <text
-        class="tick"
-        x="${x}"
-        y="${height-margin.bottom+20}"
-        text-anchor="middle"
-      >
-        ${scoreFormat(value,percentage)}
-      </text>
-    `;
-  }
-
-  html += `
-    <line
-      class="axis"
-      x1="${margin.left}"
-      y1="${height-margin.bottom}"
-      x2="${width-margin.right}"
-      y2="${height-margin.bottom}"
-    />
-
-    <line
-      class="axis"
-      x1="${margin.left}"
-      y1="${margin.top}"
-      x2="${margin.left}"
-      y2="${height-margin.bottom}"
-    />
-  `;
-
-  html += `
-    <line
-      class="avg-line"
-      x1="${scaleX(avgX)}"
-      y1="${margin.top}"
-      x2="${scaleX(avgX)}"
-      y2="${height-margin.bottom}"
-    />
-
-    <line
-      class="avg-line"
-      x1="${margin.left}"
-      y1="${scaleY(avgY)}"
-      x2="${width-margin.right}"
-      y2="${scaleY(avgY)}"
-    />
-  `;
-
-  html += `
-    <text
-      class="axis-title"
-      x="${margin.left + plotWidth/2}"
-      y="${height-15}"
-      text-anchor="middle"
-    >
-      Deal Score
-    </text>
-
-    <text
-      class="axis-title"
-      transform="translate(22 ${margin.top + plotHeight/2}) rotate(-90)"
-      text-anchor="middle"
-    >
-      AAV Net
-    </text>
-  `;
-
-  points.forEach((p,index) => {
-
-    const x = scaleX(p.x);
-    const y = scaleY(p.y);
-
-    html += `
-      <g
-        class="point"
-        data-index="${index}"
-      >
-        <circle
-          class="dot"
-          cx="${x}"
-          cy="${y}"
-          r="6"
-        />
-    `;
-
-    if (
-      p.logo &&
-      String(p.logo).startsWith("http")
-    ) {
-
-      html += `
-        <image
-          class="logo"
-          x="${x-22}"
-          y="${y-22}"
-          width="44"
-          height="44"
-          href="${p.logo}"
-          preserveAspectRatio="xMidYMid meet"
-        />
-      `;
-    }
-
-    html += `</g>`;
-  });
-
-  html += `</svg>`;
-
-  container.innerHTML = html;
-
-  const tooltip =
-    document.getElementById("tooltip");
-
-  container
-    .querySelectorAll(".point")
-    .forEach(el => {
-
-      const index =
-        Number(el.dataset.index);
-
-      const p =
-        points[index];
-
-      el.addEventListener(
-        "mousemove",
-        event => {
-
-          tooltip.innerHTML =
-            `<strong>${p.company}</strong>
-             <br>
-             Deal Score:
-             ${scoreFormat(p.x,percentage)}
-             <br>
-             AAV Net:
-             ${money(p.y)}`;
-
-          tooltip.style.display =
-            "block";
-
-          tooltip.style.left =
-            event.clientX + 12 + "px";
-
-          tooltip.style.top =
-            event.clientY + 12 + "px";
-        }
-      );
-
-      el.addEventListener(
-        "mouseleave",
-        () => {
-          tooltip.style.display =
-            "none";
-        }
-      );
-    });
-}
-
+  ]);
 </script>
 
 </body>
