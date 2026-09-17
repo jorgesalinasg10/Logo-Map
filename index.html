@@ -3,67 +3,70 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-  <script src="https://cdn.jsdelivr.net/npm/@sigmacomputing/plugin@1.3.2/dist/umd/sigmacomputing-plugin.umd.js"></script>
-
-  <style>
-    html, body {
-      margin: 0;
-      width: 100%;
-      height: 100%;
-      font-family: Arial, sans-serif;
-    }
-
-    #app {
-      width: 100%;
-      height: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #666;
-    }
-  </style>
 </head>
 
-<body>
+<body style="font-family:Arial;padding:20px">
 
-<div id="app">
-  Logo Scatter Plot ready. Select your data fields in Properties.
-</div>
+<div id="status">Starting plugin...</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@sigmacomputing/plugin"></script>
 
 <script>
-  const client = SigmaPlugin.initialize();
+  const status = document.getElementById("status");
 
-  client.config.configureEditorPanel([
-    {
-      name: "Data Source",
-      type: "element"
-    },
-    {
-      name: "Deal Score",
-      type: "column",
-      source: "Data Source",
-      allowMultiple: false
-    },
-    {
-      name: "AAV Net",
-      type: "column",
-      source: "Data Source",
-      allowMultiple: false
-    },
-    {
-      name: "Company Name",
-      type: "column",
-      source: "Data Source",
-      allowMultiple: false
-    },
-    {
-      name: "Logo URL",
-      type: "column",
-      source: "Data Source",
-      allowMultiple: false
+  try {
+
+    if (!window.SigmaPlugin) {
+      throw new Error("Sigma Plugin SDK did not load");
     }
-  ]);
+
+    const client = window.SigmaPlugin.initialize();
+
+    client.config.configureEditorPanel([
+      {
+        name: "source",
+        label: "Data Source",
+        type: "element"
+      },
+      {
+        name: "score",
+        label: "Deal Score",
+        type: "column",
+        source: "source",
+        allowMultiple: false
+      },
+      {
+        name: "revenue",
+        label: "AAV Net",
+        type: "column",
+        source: "source",
+        allowMultiple: false
+      },
+      {
+        name: "company",
+        label: "Company Name",
+        type: "column",
+        source: "source",
+        allowMultiple: false
+      },
+      {
+        name: "logo",
+        label: "Logo URL",
+        type: "column",
+        source: "source",
+        allowMultiple: false
+      }
+    ]);
+
+    status.innerHTML =
+      "<b>SUCCESS:</b> SDK loaded and editor panel configured.";
+
+  } catch (error) {
+
+    status.innerHTML =
+      "<b>PLUGIN ERROR:</b> " + error.message;
+
+  }
 </script>
 
 </body>
