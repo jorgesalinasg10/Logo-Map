@@ -2,71 +2,83 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 
 <body style="font-family:Arial;padding:20px">
 
-<div id="status">Starting plugin...</div>
+<div id="status">Starting...</div>
 
-<script src="https://cdn.jsdelivr.net/npm/@sigmacomputing/plugin"></script>
+<script src="https://cdn.jsdelivr.net/npm/@sigmacomputing/plugin@1.2.0/dist/umd/sigmacomputing-plugin.umd.js"></script>
 
 <script>
-  const status = document.getElementById("status");
+const status = document.getElementById("status");
 
-  try {
+try {
 
-    if (!window.SigmaPlugin) {
-      throw new Error("Sigma Plugin SDK did not load");
-    }
+  const client = window.SigmaPlugin.client;
 
-    const client = window.SigmaPlugin.initialize();
-
-    client.config.configureEditorPanel([
-      {
-        name: "source",
-        label: "Data Source",
-        type: "element"
-      },
-      {
-        name: "score",
-        label: "Deal Score",
-        type: "column",
-        source: "source",
-        allowMultiple: false
-      },
-      {
-        name: "revenue",
-        label: "AAV Net",
-        type: "column",
-        source: "source",
-        allowMultiple: false
-      },
-      {
-        name: "company",
-        label: "Company Name",
-        type: "column",
-        source: "source",
-        allowMultiple: false
-      },
-      {
-        name: "logo",
-        label: "Logo URL",
-        type: "column",
-        source: "source",
-        allowMultiple: false
-      }
-    ]);
-
-    status.innerHTML =
-      "<b>SUCCESS:</b> SDK loaded and editor panel configured.";
-
-  } catch (error) {
-
-    status.innerHTML =
-      "<b>PLUGIN ERROR:</b> " + error.message;
-
+  if (!client) {
+    throw new Error(
+      "Sigma client missing. Available SDK items: " +
+      Object.keys(window.SigmaPlugin || {}).join(", ")
+    );
   }
+
+  if (
+    !client.config ||
+    typeof client.config.configureEditorPanel !== "function"
+  ) {
+    throw new Error(
+      "configureEditorPanel missing. Config items: " +
+      Object.keys(client.config || {}).join(", ")
+    );
+  }
+
+  client.config.configureEditorPanel([
+    {
+      name: "source",
+      label: "Data Source",
+      type: "element"
+    },
+    {
+      name: "score",
+      label: "Deal Score",
+      type: "column",
+      source: "source",
+      allowMultiple: false
+    },
+    {
+      name: "revenue",
+      label: "AAV Net",
+      type: "column",
+      source: "source",
+      allowMultiple: false
+    },
+    {
+      name: "company",
+      label: "Company Name",
+      type: "column",
+      source: "source",
+      allowMultiple: false
+    },
+    {
+      name: "logo",
+      label: "Logo URL",
+      type: "column",
+      source: "source",
+      allowMultiple: false
+    }
+  ]);
+
+  status.innerHTML =
+    "<b>SUCCESS:</b> Sigma configuration connected.";
+
+} catch (e) {
+
+  status.innerHTML =
+    "<b>ERROR:</b> " + e.message;
+
+}
 </script>
 
 </body>
