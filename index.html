@@ -59,40 +59,108 @@ client.config.configureEditorPanel([
   }
 ]);
 
-let config = client.config.get() || {};
+let config = {};
 let columns = {};
 let data = {};
 
+let unsubscribeColumns = null;
+let unsubscribeData = null;
+let boundSource = null;
+
 function show() {
   output.textContent = JSON.stringify({
-    CONFIG: config,
-    COLUMNS: columns,
-    DATA_KEYS: Object.keys(data)
+    SOURCE: config.source || null,
+    SCORE: config.score || null,
+    REVENUE: config.revenue || null,
+    COMPANY: config.company || null,
+
+    COLUMN_KEYS: Object.keys(columns),
+
+    DATA_KEYS: Object.keys(data),
+
+    ROW_COUNTS: Object.fromEntries(
+      Object.entries(data).map(
+        ([key, values]) => [
+          key,
+          Array.isArray(values) ? values.length : 0
+        ]
+      )
+    )
   }, null, 2);
 }
 
-client.config.subscribe(function(c) {
-  config = c || {};
+async function bindSource() {
+
+  if (!config.source) {
+    return;
+  }
+
+  if (config.source === boundSource) {
+    return;
+  }
+
+  boundSource = config.source;
+
+  if (unsubscribeColumns) {
+    unsubscribeColumns();
+  }
+
+  if (unsubscribeData) {
+    unsubscribeData();
+  }
+
+  try {
+
+    columns =
+      await client.elements.getElementColumns("source");
+
+    show();
+
+  } catch (error) {
+
+    output.textContent =
+      "COLUMN ERROR: " + error.message;
+
+  }
+
+  unsubscribeColumns =
+    client.elements.subscribeToElementColumns(
+      "source",
+      function(nextColumns) {
+        columns = nextColumns || {};
+        show();
+      }
+    );
+
+  unsubscribeData =
+    client.elements.subscribeToElementData(
+      "source",
+      function(nextData) {
+        data = nextData || {};
+        show();
+      }
+    );
+}
+
+client.config.subscribe(
+  function(nextConfig) {
+
+    config = nextConfig || {};
+
+    show();
+
+    bindSource();
+  }
+);
+
+const initialConfig =
+  client.config.get();
+
+if (initialConfig) {
+  config = initialConfig;
   show();
-});
-
-client.elements.subscribeToElementColumns(
-  "source",
-  function(c) {
-    columns = c || {};
-    show();
-  }
-);
-
-client.elements.subscribeToElementData(
-  "source",
-  function(d) {
-    data = d || {};
-    show();
-  }
-);
-
-show();
+  bindSource();
+}
 </script>
 
 </body>
