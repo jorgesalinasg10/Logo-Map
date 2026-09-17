@@ -8,70 +8,66 @@
 
 <div id="status">Starting...</div>
 
-<script src="https://cdn.jsdelivr.net/npm/@sigmacomputing/plugin@1.2.0/dist/umd/sigmacomputing-plugin.umd.js"></script>
+<script
+  src="https://unpkg.com/@sigmacomputing/plugin@1.2.0/dist/umd/sigmacomputing-plugin.umd.js"
+></script>
 
 <script>
 const status = document.getElementById("status");
 
 try {
 
-  const client = window.SigmaPlugin.client;
+  if (!window.SigmaPlugin) {
+    throw new Error("SigmaPlugin global did not load");
+  }
 
-  if (!client) {
+  if (typeof window.SigmaPlugin.initialize !== "function") {
     throw new Error(
-      "Sigma client missing. Available SDK items: " +
-      Object.keys(window.SigmaPlugin || {}).join(", ")
+      "initialize missing. SDK properties: " +
+      Object.getOwnPropertyNames(window.SigmaPlugin).join(", ")
     );
   }
 
-  if (
-    !client.config ||
-    typeof client.config.configureEditorPanel !== "function"
-  ) {
-    throw new Error(
-      "configureEditorPanel missing. Config items: " +
-      Object.keys(client.config || {}).join(", ")
-    );
-  }
+  const client = window.SigmaPlugin.initialize();
 
   client.config.configureEditorPanel([
     {
       name: "source",
-      label: "Data Source",
-      type: "element"
+      type: "element",
+      label: "Data Source"
     },
     {
       name: "score",
-      label: "Deal Score",
       type: "column",
       source: "source",
+      label: "Deal Score",
       allowMultiple: false
     },
     {
       name: "revenue",
-      label: "AAV Net",
       type: "column",
       source: "source",
+      label: "AAV Net",
       allowMultiple: false
     },
     {
       name: "company",
-      label: "Company Name",
       type: "column",
       source: "source",
+      label: "Company Name",
       allowMultiple: false
     },
     {
       name: "logo",
-      label: "Logo URL",
       type: "column",
       source: "source",
+      label: "Logo URL",
       allowMultiple: false
     }
   ]);
 
   status.innerHTML =
-    "<b>SUCCESS:</b> Sigma configuration connected.";
+    "<b>SUCCESS:</b> Sigma SDK connected.";
 
 } catch (e) {
 
