@@ -17,15 +17,11 @@
 </head>
 
 <body style="font-family:Arial;padding:20px;">
-<div id="root">Waiting for Sigma...</div>
+<pre id="output">Waiting for Sigma...</pre>
 
 <script>
-const {
-  client,
-  SigmaClientProvider,
-  useConfig,
-  useElementData
-} = window.SigmaPlugin;
+const client = window.SigmaPlugin.client;
+const output = document.getElementById("output");
 
 client.config.configureEditorPanel([
   { name: "source", type: "element", label: "Data Source" },
@@ -63,40 +59,70 @@ client.config.configureEditorPanel([
   }
 ]);
 
-function App() {
+let config = {};
+let data = {};
+let columns = {};
 
-  const config = useConfig() || {};
-  const data = useElementData("source") || {};
+let stopData = null;
+let stopColumns = null;
+let currentSource = null;
 
-  const rowCounts = Object.fromEntries(
-    Object.entries(data).map(([key, values]) => [
-      key,
-      Array.isArray(values) ? values.length : 0
-    ])
-  );
-
-  return React.createElement(
-    "pre",
-    null,
-    JSON.stringify({
-      SCORE: config.score || null,
-      REVENUE: config.revenue || null,
-      COMPANY: config.company || null,
-      DATA_KEYS: Object.keys(data),
-      ROW_COUNTS: rowCounts
-    }, null, 2)
-  );
+function show() {
+  output.textContent = JSON.stringify({
+    SOURCE: config.source || null,
+    SCORE: config.score || null,
+    REVENUE: config.revenue || null,
+    COMPANY: config.company || null,
+    COLUMN_KEYS: Object.keys(columns),
+    DATA_KEYS: Object.keys(data),
+    ROW_COUNTS: Object.fromEntries(
+      Object.entries(data).map(([key, values]) => [
+        key,
+        Array.isArray(values) ? values.length : 0
+      ])
+    )
+  }, null, 2);
 }
 
-ReactDOM.createRoot(
-  document.getElementById("root")
-).render(
-  React.createElement(
-    SigmaClientProvider,
-    { client: client },
-    React.createElement(App)
-  )
-);
+function connectToSource() {
+
+  if (!config.source) return;
+
+  if (config.source === currentSource) return;
+
+  currentSource = config.source;
+
+  if (stopData) stopData();
+  if (stopColumns) stopColumns();
+
+  stopColumns =
+    client.elements.subscribeToElementColumns(
+      config.source,
+      function(nextColumns) {
+        columns = nextColumns || {};
+        show();
+      }
+    );
+
+  stopData =
+    client.elements.subscribeToElementData(
+      config.source,
+      function(nextData) {
+        data = nextData || {};
+        show();
+      }
+    );
+}
+
+client.config.subscribe(function(nextConfig) {
+  config = nextConfig || {};
+  show();
+  connectToSource();
+});
+
+config = client.config.get() || {};
+show();
+connectToSource();
 </script>
 
 </body>
