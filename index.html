@@ -161,6 +161,16 @@ let data = {};
 let currentSource = null;
 let stopData = null;
 
+/*
+  Stores already-normalized logos.
+
+  Once a logo has been processed,
+  we do not need to process it again.
+*/
+
+const normalizedLogoCache = new Map();
+const logosBeingProcessed = new Set();
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -172,10 +182,15 @@ function escapeHtml(value) {
 function numeric(value) {
 
   if (typeof value === "number") {
-    return Number.isFinite(value) ? value : null;
+    return Number.isFinite(value)
+      ? value
+      : null;
   }
 
-  if (value === null || value === undefined) {
+  if (
+    value === null ||
+    value === undefined
+  ) {
     return null;
   }
 
@@ -185,7 +200,9 @@ function numeric(value) {
       .trim()
   );
 
-  return Number.isFinite(n) ? n : null;
+  return Number.isFinite(n)
+    ? n
+    : null;
 }
 
 function formatMoney(value) {
@@ -200,16 +217,585 @@ function formatMoney(value) {
   ).format(value);
 }
 
+/*
+  ------------------------------------------------
+  AUTOMATIC LOGO NORMALIZATION
+  ------------------------------------------------
+
+  This function:
+
+  1. Loads the image
+  2. Finds the visible logo
+  3. Ignores transparent margins
+  4. Ignores large white margins
+  5. Crops the logo
+  6. Centers it
+  7. Places it into a standard square
+  8. Preserves aspect ratio
+*/
+
+function normalizeLogo(url) {
+
+  if (
+    normalizedLogoCache.has(url)
+  ) {
+    return;
+  }
+
+  if (
+    logosBeingProcessed.has(url)
+  ) {
+    return;
+  }
+
+  logosBeingProcessed.add(url);
+
+  const img = new Image();
+
+  /*
+    Your GitHub Pages images are on the
+    same site as the plugin, so this
+    should allow us to inspect them.
+  */
+
+  img.crossOrigin = "anonymous";
+
+  img.onload = function() {
+
+    try {
+
+      /*
+        Keep processing reasonably small,
+        even if someone uploads a huge image.
+      */
+
+      const maxProcessSize = 1000;
+
+      let processWidth =
+        img.naturalWidth;
+
+      let processHeight =
+        img.naturalHeight;
+
+      if (
+        processWidth > maxProcessSize ||
+        processHeight > maxProcessSize
+      ) {
+
+        const scale =
+          Math.min(
+            maxProcessSize / processWidth,
+            maxProcessSize / processHeight
+          );
+
+        processWidth =
+          Math.round(
+            processWidth * scale
+          );
+
+        processHeight =
+          Math.round(
+            processHeight * scale
+          );
+      }
+
+      const canvas =
+        document.createElement("canvas");
+
+      canvas.width =
+        processWidth;
+
+      canvas.height =
+        processHeight;
+
+      const ctx =
+        canvas.getContext(
+          "2d",
+          {
+            willReadFrequently: true
+          }
+        );
+
+      ctx.drawImage(
+        img,
+        0,
+        0,
+        processWidth,
+        processHeight
+      );
+
+      const imageData =
+        ctx.getImageData(
+          0,
+          0,
+          processWidth,
+          processHeight
+        );
+
+      const pixels =
+        imageData.data;
+
+      /*
+        Estimate the background color
+        from the four corners.
+
+        This helps us recognize images
+        that have a white background
+        instead of transparency.
+      */
+
+      function getPixel(x, y) {
+
+        const index =
+          (
+            y * processWidth +
+            x
+          ) * 4;
+
+        return {
+          r: pixels[index],
+          g: pixels[index + 1],
+          b: pixels[index + 2],
+          a: pixels[index + 3]
+        };
+      }
+
+      const corners = [
+        getPixel(0, 0),
+        getPixel(
+          processWidth - 1,
+          0
+        ),
+        getPixel(
+          0,
+          processHeight - 1
+        ),
+        getPixel(
+          processWidth - 1,
+          processHeight - 1
+        )
+      ];
+
+      const averageCornerAlpha =
+        corners.reduce(
+          (sum, p) =>
+            sum + p.a,
+          0
+        ) /
+        corners.length;
+
+      const backgroundTransparent =
+        averageCornerAlpha < 50;
+
+      const backgroundColor = {
+
+        r:
+          corners.reduce(
+            (sum, p) =>
+              sum + p.r,
+            0
+          ) /
+          corners.length,
+
+        g:
+          corners.reduce(
+            (sum, p) =>
+              sum + p.g,
+            0
+          ) /
+          corners.length,
+
+        b:
+          corners.reduce(
+            (sum, p) =>
+              sum + p.b,
+            0
+          ) /
+          corners.length
+      };
+
+      let minX =
+        processWidth;
+
+      let minY =
+        processHeight;
+
+      let maxX = -1;
+      let maxY = -1;
+
+      /*
+        Determines whether a pixel is
+        part of the visible logo.
+      */
+
+      function isVisiblePixel(
+        r,
+        g,
+        b,
+        a
+      ) {
+
+        /*
+          Fully transparent pixels
+          are always background.
+        */
+
+        if (a < 20) {
+          return false;
+        }
+
+        /*
+          Transparent-background PNG.
+        */
+
+        if (backgroundTransparent) {
+          return true;
+        }
+
+        /*
+          For white or solid-background
+          images, compare each pixel to
+          the background color.
+        */
+
+        const redDifference =
+          r - backgroundColor.r;
+
+        const greenDifference =
+          g - backgroundColor.g;
+
+        const blueDifference =
+          b - backgroundColor.b;
+
+        const distance =
+          Math.sqrt(
+            redDifference *
+            redDifference +
+
+            greenDifference *
+            greenDifference +
+
+            blueDifference *
+            blueDifference
+          );
+
+        /*
+          Higher number means we ignore
+          more subtle background noise.
+        */
+
+        return distance > 28;
+      }
+
+      /*
+        Scan every pixel and find the
+        visible logo boundaries.
+      */
+
+      for (
+        let y = 0;
+        y < processHeight;
+        y++
+      ) {
+
+        for (
+          let x = 0;
+          x < processWidth;
+          x++
+        ) {
+
+          const index =
+            (
+              y * processWidth +
+              x
+            ) * 4;
+
+          const r =
+            pixels[index];
+
+          const g =
+            pixels[index + 1];
+
+          const b =
+            pixels[index + 2];
+
+          const a =
+            pixels[index + 3];
+
+          if (
+            isVisiblePixel(
+              r,
+              g,
+              b,
+              a
+            )
+          ) {
+
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+          }
+        }
+      }
+
+      /*
+        If nothing was detected,
+        just use the original image.
+      */
+
+      if (
+        maxX < minX ||
+        maxY < minY
+      ) {
+
+        normalizedLogoCache.set(
+          url,
+          url
+        );
+
+        logosBeingProcessed.delete(
+          url
+        );
+
+        render();
+
+        return;
+      }
+
+      let cropWidth =
+        maxX -
+        minX +
+        1;
+
+      let cropHeight =
+        maxY -
+        minY +
+        1;
+
+      /*
+        Add a small amount of padding
+        around the actual logo so it
+        doesn't feel cramped.
+      */
+
+      const paddingX =
+        Math.round(
+          cropWidth * 0.05
+        );
+
+      const paddingY =
+        Math.round(
+          cropHeight * 0.05
+        );
+
+      minX =
+        Math.max(
+          0,
+          minX - paddingX
+        );
+
+      minY =
+        Math.max(
+          0,
+          minY - paddingY
+        );
+
+      maxX =
+        Math.min(
+          processWidth - 1,
+          maxX + paddingX
+        );
+
+      maxY =
+        Math.min(
+          processHeight - 1,
+          maxY + paddingY
+        );
+
+      cropWidth =
+        maxX -
+        minX +
+        1;
+
+      cropHeight =
+        maxY -
+        minY +
+        1;
+
+      /*
+        Every normalized logo gets
+        placed onto the same
+        500 × 500 canvas.
+      */
+
+      const outputSize = 500;
+
+      const outputCanvas =
+        document.createElement(
+          "canvas"
+        );
+
+      outputCanvas.width =
+        outputSize;
+
+      outputCanvas.height =
+        outputSize;
+
+      const outputContext =
+        outputCanvas.getContext(
+          "2d"
+        );
+
+      /*
+        The visible logo occupies
+        approximately 86% of the
+        normalized canvas.
+
+        This makes different logos
+        feel much more consistent.
+      */
+
+      const targetSize =
+        outputSize * 0.86;
+
+      const fitScale =
+        Math.min(
+          targetSize / cropWidth,
+          targetSize / cropHeight
+        );
+
+      const drawWidth =
+        cropWidth *
+        fitScale;
+
+      const drawHeight =
+        cropHeight *
+        fitScale;
+
+      const drawX =
+        (
+          outputSize -
+          drawWidth
+        ) / 2;
+
+      const drawY =
+        (
+          outputSize -
+          drawHeight
+        ) / 2;
+
+      outputContext.drawImage(
+        canvas,
+
+        minX,
+        minY,
+        cropWidth,
+        cropHeight,
+
+        drawX,
+        drawY,
+        drawWidth,
+        drawHeight
+      );
+
+      const normalizedUrl =
+        outputCanvas.toDataURL(
+          "image/png"
+        );
+
+      normalizedLogoCache.set(
+        url,
+        normalizedUrl
+      );
+
+      logosBeingProcessed.delete(
+        url
+      );
+
+      /*
+        Re-render after normalization
+        is complete.
+      */
+
+      render();
+
+    } catch (error) {
+
+      /*
+        If anything goes wrong,
+        fall back to the original logo.
+      */
+
+      normalizedLogoCache.set(
+        url,
+        url
+      );
+
+      logosBeingProcessed.delete(
+        url
+      );
+
+      render();
+    }
+  };
+
+  img.onerror = function() {
+
+    normalizedLogoCache.set(
+      url,
+      url
+    );
+
+    logosBeingProcessed.delete(
+      url
+    );
+
+    render();
+  };
+
+  img.src = url;
+}
+
+/*
+  Get either the normalized version
+  or temporarily use the original
+  while normalization is happening.
+*/
+
+function getLogoUrl(url) {
+
+  if (
+    normalizedLogoCache.has(url)
+  ) {
+
+    return normalizedLogoCache.get(
+      url
+    );
+  }
+
+  normalizeLogo(url);
+
+  return url;
+}
+
 function connectData() {
 
-  if (!config.source) return;
+  if (!config.source) {
+    return;
+  }
 
-  if (config.source === currentSource) {
+  if (
+    config.source === currentSource
+  ) {
+
     render();
     return;
   }
 
-  currentSource = config.source;
+  currentSource =
+    config.source;
 
   if (stopData) {
     stopData();
@@ -219,7 +805,10 @@ function connectData() {
     client.elements.subscribeToElementData(
       config.source,
       function(nextData) {
-        data = nextData || {};
+
+        data =
+          nextData || {};
+
         render();
       }
     );
@@ -228,7 +817,9 @@ function connectData() {
 function render() {
 
   const container =
-    document.getElementById("chart");
+    document.getElementById(
+      "chart"
+    );
 
   if (
     !config.score ||
@@ -258,13 +849,7 @@ function render() {
       : [];
 
   /*
-    DETECT LOGO MODE
-
-    When your Sigma dropdown is set to Logos,
-    Logo URL contains image URLs.
-
-    When dropdown is set to Dots,
-    Logo URL becomes Null.
+    LOGO MODE DETECTION
   */
 
   const logoMode =
@@ -277,15 +862,13 @@ function render() {
     );
 
   /*
-    BACKGROUND
-
-    Logos = very light gray
-    Dots = white
+    Logo mode = light gray
+    Dot mode = white
   */
 
   const backgroundColor =
     logoMode
-      ? "#F2F3F5"
+      ? "#EEF0F2"
       : "#FFFFFF";
 
   container.style.background =
@@ -374,10 +957,14 @@ function render() {
     margin.bottom;
 
   const xs =
-    points.map(p => p.x);
+    points.map(
+      p => p.x
+    );
 
   const ys =
-    points.map(p => p.y);
+    points.map(
+      p => p.y
+    );
 
   const scoreIsDecimal =
     Math.max(...xs) <= 1.5;
@@ -394,7 +981,9 @@ function render() {
   const xPadding =
     Math.max(
       (maxX - minX) * .07,
-      scoreIsDecimal ? .01 : 1
+      scoreIsDecimal
+        ? .01
+        : 1
     );
 
   minX -= xPadding;
@@ -466,8 +1055,20 @@ function render() {
     ) /
     ys.length;
 
+  /*
+    Actual SVG gets the background color
+    so Sigma cannot override it.
+  */
+
   let svg =
-    `<svg viewBox="0 0 ${width} ${height}">`;
+    `<svg viewBox="0 0 ${width} ${height}">
+      <rect
+        x="0"
+        y="0"
+        width="${width}"
+        height="${height}"
+        fill="${backgroundColor}"
+      />`;
 
   svg += `
     <text
@@ -631,13 +1232,6 @@ function render() {
 
   /*
     POINTS
-
-    Logo exists:
-      90 x 90 logo
-      NO blue dot underneath
-
-    No logo:
-      normal blue dot
   */
 
   points.forEach(
@@ -663,6 +1257,16 @@ function render() {
         )
       ) {
 
+        /*
+          Automatically use the
+          normalized logo.
+        */
+
+        const displayLogo =
+          getLogoUrl(
+            point.logo
+          );
+
         svg += `
           <image
             class="logo"
@@ -670,7 +1274,7 @@ function render() {
             y="${y-45}"
             width="90"
             height="90"
-            href="${escapeHtml(point.logo)}"
+            href="${escapeHtml(displayLogo)}"
             preserveAspectRatio="xMidYMid meet"
           />
         `;
