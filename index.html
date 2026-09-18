@@ -81,12 +81,6 @@
       stroke-width: 1.5;
     }
 
-    .connector {
-      stroke: #a6a9ad;
-      stroke-width: 1;
-      opacity: 0.7;
-    }
-
     .logo {
       cursor: pointer;
     }
@@ -131,9 +125,9 @@ const client =
 
 
 /*
-  ----------------------------------------
+  ========================================
   SIGMA PROPERTIES
-  ----------------------------------------
+  ========================================
 */
 
 client.config.configureEditorPanel([
@@ -174,34 +168,18 @@ client.config.configureEditorPanel([
 
 
 /*
-  ----------------------------------------
-  GENERAL SETTINGS
-  ----------------------------------------
+  ========================================
+  SETTINGS
+  ========================================
 */
 
 const LOGO_SIZE = 90;
 
-/*
-  Increase this if you want logos
-  spread farther apart.
-*/
-
-const COLLISION_DISTANCE = 78;
 
 /*
-  Maximum distance a logo may move
-  away from its real data position.
-*/
-
-const MAX_DISPLACEMENT = 78;
-
-const COLLISION_ITERATIONS = 60;
-
-
-/*
-  ----------------------------------------
+  ========================================
   STATE
-  ----------------------------------------
+  ========================================
 */
 
 let config =
@@ -215,9 +193,9 @@ let stopData = null;
 
 
 /*
-  ----------------------------------------
-  LOGO CACHE
-  ----------------------------------------
+  ========================================
+  LOGO NORMALIZATION CACHE
+  ========================================
 */
 
 const normalizedLogoCache =
@@ -228,9 +206,9 @@ const logosBeingProcessed =
 
 
 /*
-  ----------------------------------------
+  ========================================
   HELPERS
-  ----------------------------------------
+  ========================================
 */
 
 function escapeHtml(value) {
@@ -293,15 +271,14 @@ function formatMoney(value) {
   AUTOMATIC LOGO NORMALIZATION
   ========================================
 
-  This:
+  This tries to:
 
-  1. Loads each image
-  2. Detects transparent / solid background
-  3. Finds the visible logo
-  4. Crops excess space
-  5. Centers the visible logo
-  6. Makes logos feel much closer in size
-  7. Preserves proportions
+  1. Detect the visible logo
+  2. Remove transparent / white margins
+  3. Center the actual logo
+  4. Make different source images
+     appear more consistent in size
+  5. Preserve the original proportions
 */
 
 
@@ -332,11 +309,6 @@ function normalizeLogo(url) {
 
       try {
 
-        /*
-          Avoid processing extremely
-          large source images.
-        */
-
         const maxProcessSize =
           1000;
 
@@ -348,6 +320,11 @@ function normalizeLogo(url) {
         let processHeight =
           img.naturalHeight;
 
+
+        /*
+          Reduce extremely large
+          images before analysis.
+        */
 
         if (
           processWidth > maxProcessSize ||
@@ -425,7 +402,7 @@ function normalizeLogo(url) {
 
 
 /*
-  Read one pixel.
+  Get one pixel from the image.
 */
 
         function getPixel(
@@ -466,8 +443,8 @@ function normalizeLogo(url) {
 
 
 /*
-  Sample the corners to estimate
-  the image background.
+  Estimate the background
+  from the four corners.
 */
 
         const corners = [
@@ -508,7 +485,8 @@ function normalizeLogo(url) {
 
 
         const backgroundTransparent =
-          averageCornerAlpha < 50;
+          averageCornerAlpha <
+          50;
 
 
         const backgroundColor = {
@@ -589,7 +567,8 @@ function normalizeLogo(url) {
 
 
           /*
-            Transparent PNG.
+            Transparent PNG:
+            any visible pixel counts.
           */
 
           if (
@@ -601,8 +580,9 @@ function normalizeLogo(url) {
 
 
           /*
-            Compare pixel to estimated
-            background color.
+            For solid backgrounds,
+            compare to the sampled
+            corner background color.
           */
 
           const dr =
@@ -628,13 +608,13 @@ function normalizeLogo(url) {
             );
 
 
-          return distance > 28;
+          return distance >
+            28;
         }
 
 
 /*
-  Scan the image and find
-  visible logo boundaries.
+  Scan the whole image.
 */
 
         for (
@@ -692,28 +672,36 @@ function normalizeLogo(url) {
               if (
                 x < minX
               ) {
-                minX = x;
+
+                minX =
+                  x;
               }
 
 
               if (
                 x > maxX
               ) {
-                maxX = x;
+
+                maxX =
+                  x;
               }
 
 
               if (
                 y < minY
               ) {
-                minY = y;
+
+                minY =
+                  y;
               }
 
 
               if (
                 y > maxY
               ) {
-                maxY = y;
+
+                maxY =
+                  y;
               }
             }
           }
@@ -722,7 +710,7 @@ function normalizeLogo(url) {
 
 /*
   If detection fails,
-  just use the source image.
+  just use the original image.
 */
 
         if (
@@ -761,21 +749,21 @@ function normalizeLogo(url) {
 
 
 /*
-  Small safety padding
-  around the visible logo.
+  Very small padding around
+  the actual visible logo.
 */
 
         const paddingX =
           Math.round(
             cropWidth *
-            0.025
+            0.02
           );
 
 
         const paddingY =
           Math.round(
             cropHeight *
-            0.025
+            0.02
           );
 
 
@@ -797,7 +785,9 @@ function normalizeLogo(url) {
 
         maxX =
           Math.min(
-            processWidth - 1,
+            processWidth -
+            1,
+
             maxX +
             paddingX
           );
@@ -805,7 +795,9 @@ function normalizeLogo(url) {
 
         maxY =
           Math.min(
-            processHeight - 1,
+            processHeight -
+            1,
+
             maxY +
             paddingY
           );
@@ -824,8 +816,9 @@ function normalizeLogo(url) {
 
 
 /*
-  All logos are normalized
-  onto a 500 × 500 canvas.
+  All normalized logos are
+  placed onto a 500 x 500
+  transparent canvas.
 */
 
         const outputSize =
@@ -853,9 +846,9 @@ function normalizeLogo(url) {
 
 
 /*
-  ----------------------------------------
-  STRONG VISUAL SIZE NORMALIZATION
-  ----------------------------------------
+  ========================================
+  VISUAL SIZE NORMALIZATION
+  ========================================
 */
 
         const aspectRatio =
@@ -864,37 +857,38 @@ function normalizeLogo(url) {
 
 
 /*
-  Normal logos fill about 92%
-  of the normalization canvas.
+  Standard target:
+  visible logo fills about
+  94% of its normalized box.
 */
 
         let targetSize =
           outputSize *
-          0.92;
+          0.94;
 
 
 /*
-  Very wide or very tall logos
-  get a little extra boost.
-
-  This helps wordmarks like
-  AdventHealth feel closer in size
-  to compact / square logos.
+  Very wide / very tall logos
+  need a slight boost because
+  they naturally look smaller
+  inside a square.
 */
 
         if (
-          aspectRatio > 2.2 ||
-          aspectRatio < 0.45
+          aspectRatio >
+          2.0 ||
+          aspectRatio <
+          0.50
         ) {
 
           targetSize =
             outputSize *
-            0.98;
+            0.99;
         }
 
 
 /*
-  Preserve the original proportions.
+  Keep original proportions.
 */
 
         const fitScale =
@@ -918,12 +912,13 @@ function normalizeLogo(url) {
 
 
 /*
-  Safety cap.
+  Hard cap so nothing
+  escapes the square.
 */
 
         const maxVisibleSize =
           outputSize *
-          0.98;
+          0.99;
 
 
         if (
@@ -965,7 +960,7 @@ function normalizeLogo(url) {
 
 
 /*
-  Center the visible logo.
+  Center the normalized logo.
 */
 
         const drawX =
@@ -1031,6 +1026,11 @@ function normalizeLogo(url) {
         error
       ) {
 
+        /*
+          If normalization fails,
+          use the original image.
+        */
+
         normalizedLogoCache.set(
           url,
           url
@@ -1071,13 +1071,15 @@ function normalizeLogo(url) {
 
 
 /*
-  Return normalized image if ready.
+  Return normalized image when ready.
 
-  Otherwise temporarily use the
-  original while processing.
+  Until then, temporarily use
+  the original source.
 */
 
-function getLogoUrl(url) {
+function getLogoUrl(
+  url
+) {
 
   if (
     normalizedLogoCache.has(
@@ -1102,315 +1104,9 @@ function getLogoUrl(url) {
 
 /*
   ========================================
-  AUTOMATIC COLLISION SPREADING
-  ========================================
-
-  actualX / actualY
-  = true data position
-
-  displayX / displayY
-  = where the logo is shown
-*/
-
-
-function spreadLogos(
-  points,
-  plotLeft,
-  plotTop,
-  plotRight,
-  plotBottom
-) {
-
-  const logoPoints =
-    points.filter(
-      point =>
-        point.hasLogo
-    );
-
-
-/*
-  Start logos at their
-  true positions.
-*/
-
-  logoPoints.forEach(
-    point => {
-
-      point.displayX =
-        point.actualX;
-
-
-      point.displayY =
-        point.actualY;
-    }
-  );
-
-
-/*
-  Multiple passes gently
-  separate overlapping logos.
-*/
-
-  for (
-    let iteration = 0;
-    iteration <
-    COLLISION_ITERATIONS;
-    iteration++
-  ) {
-
-    for (
-      let i = 0;
-      i <
-      logoPoints.length;
-      i++
-    ) {
-
-      for (
-        let j = i + 1;
-        j <
-        logoPoints.length;
-        j++
-      ) {
-
-        const a =
-          logoPoints[i];
-
-
-        const b =
-          logoPoints[j];
-
-
-        let dx =
-          b.displayX -
-          a.displayX;
-
-
-        let dy =
-          b.displayY -
-          a.displayY;
-
-
-        let distance =
-          Math.sqrt(
-            dx * dx +
-            dy * dy
-          );
-
-
-/*
-  If two points are exactly
-  on top of each other,
-  give them a deterministic
-  direction to separate.
-*/
-
-        if (
-          distance < 0.01
-        ) {
-
-          const seed =
-            (
-              (
-                i + 1
-              ) *
-              37 +
-
-              (
-                j + 1
-              ) *
-              53
-            ) %
-            360;
-
-
-          const angle =
-            seed *
-            Math.PI /
-            180;
-
-
-          dx =
-            Math.cos(
-              angle
-            );
-
-
-          dy =
-            Math.sin(
-              angle
-            );
-
-
-          distance =
-            1;
-        }
-
-
-        if (
-          distance <
-          COLLISION_DISTANCE
-        ) {
-
-          const overlap =
-            COLLISION_DISTANCE -
-            distance;
-
-
-          const push =
-            overlap *
-            0.40;
-
-
-          const nx =
-            dx /
-            distance;
-
-
-          const ny =
-            dy /
-            distance;
-
-
-          a.displayX -=
-            nx *
-            push;
-
-
-          a.displayY -=
-            ny *
-            push;
-
-
-          b.displayX +=
-            nx *
-            push;
-
-
-          b.displayY +=
-            ny *
-            push;
-        }
-      }
-    }
-
-
-/*
-  Gently pull logos back toward
-  their true data position.
-*/
-
-    logoPoints.forEach(
-      point => {
-
-        point.displayX +=
-          (
-            point.actualX -
-            point.displayX
-          ) *
-          0.03;
-
-
-        point.displayY +=
-          (
-            point.actualY -
-            point.displayY
-          ) *
-          0.03;
-
-
-/*
-  Limit how far a logo
-  can move.
-*/
-
-        let dx =
-          point.displayX -
-          point.actualX;
-
-
-        let dy =
-          point.displayY -
-          point.actualY;
-
-
-        const displacement =
-          Math.sqrt(
-            dx * dx +
-            dy * dy
-          );
-
-
-        if (
-          displacement >
-          MAX_DISPLACEMENT
-        ) {
-
-          const scale =
-            MAX_DISPLACEMENT /
-            displacement;
-
-
-          point.displayX =
-            point.actualX +
-            dx *
-            scale;
-
-
-          point.displayY =
-            point.actualY +
-            dy *
-            scale;
-        }
-
-
-/*
-  Keep logos inside
-  the plot area.
-*/
-
-        const halfLogo =
-          LOGO_SIZE /
-          2;
-
-
-        point.displayX =
-          Math.max(
-            plotLeft +
-            halfLogo,
-
-            Math.min(
-              plotRight -
-              halfLogo,
-
-              point.displayX
-            )
-          );
-
-
-        point.displayY =
-          Math.max(
-            plotTop +
-            halfLogo,
-
-            Math.min(
-              plotBottom -
-              halfLogo,
-
-              point.displayY
-            )
-          );
-      }
-    );
-  }
-}
-
-
-/*
-  ========================================
   SIGMA DATA CONNECTION
   ========================================
 */
-
 
 function connectData() {
 
@@ -1470,7 +1166,6 @@ function connectData() {
   ========================================
 */
 
-
 function render() {
 
   const container =
@@ -1528,12 +1223,11 @@ function render() {
 
 
 /*
-  Logo Mode is active whenever
-  the Logo URL column contains
-  valid image URLs.
+  Logo mode detection.
 
   Your Sigma dropdown makes
-  these URLs null in Dot mode.
+  Logo URL null when Dots
+  is selected.
 */
 
   const logoMode =
@@ -1549,7 +1243,8 @@ function render() {
 
 
 /*
-  Background colors.
+  Logo mode = light gray.
+  Dot mode = white.
 */
 
   const backgroundColor =
@@ -1668,9 +1363,9 @@ function render() {
 
 
 /*
-  ----------------------------------------
+  ========================================
   CHART SIZE
-  ----------------------------------------
+  ========================================
 */
 
   const width =
@@ -1796,11 +1491,10 @@ function render() {
 
 
 /*
-  ----------------------------------------
+  ========================================
   SCALES
-  ----------------------------------------
+  ========================================
 */
-
 
   function sx(
     value
@@ -1866,11 +1560,10 @@ function render() {
 
 
 /*
-  ----------------------------------------
+  ========================================
   AVERAGES
-  ----------------------------------------
+  ========================================
 */
-
 
   const avgX =
     xs.reduce(
@@ -1899,7 +1592,18 @@ function render() {
 
 
 /*
-  Calculate true positions.
+  ========================================
+  TRUE POINT POSITIONS
+
+  IMPORTANT:
+
+  No logo movement.
+  No spreading.
+  No jitter.
+
+  Every logo center is the
+  true chart coordinate.
+  ========================================
 */
 
   points.forEach(
@@ -1915,41 +1619,8 @@ function render() {
         sy(
           point.y
         );
-
-
-      point.displayX =
-        point.actualX;
-
-
-      point.displayY =
-        point.actualY;
     }
   );
-
-
-/*
-  Only spread positions
-  when Logo mode is active.
-*/
-
-  if (
-    logoMode
-  ) {
-
-    spreadLogos(
-      points,
-
-      margin.left,
-
-      margin.top,
-
-      width -
-      margin.right,
-
-      height -
-      margin.bottom
-    );
-  }
 
 
 /*
@@ -1957,7 +1628,6 @@ function render() {
   BUILD SVG
   ========================================
 */
-
 
   let svg =
     `
@@ -1992,11 +1662,10 @@ function render() {
 
 
 /*
-  ----------------------------------------
+  ========================================
   Y GRID
-  ----------------------------------------
+  ========================================
 */
-
 
   const ySteps =
     8;
@@ -2044,11 +1713,10 @@ function render() {
 
 
 /*
-  ----------------------------------------
+  ========================================
   X GRID
-  ----------------------------------------
+  ========================================
 */
-
 
   const xSteps =
     8;
@@ -2102,7 +1770,9 @@ function render() {
 
 
 /*
-  Axes
+  ========================================
+  AXES
+  ========================================
 */
 
   svg +=
@@ -2126,11 +1796,10 @@ function render() {
 
 
 /*
-  ----------------------------------------
+  ========================================
   AVERAGE LINES
-  ----------------------------------------
+  ========================================
 */
-
 
   svg +=
     `
@@ -2170,7 +1839,9 @@ function render() {
 
 
 /*
-  Axis titles
+  ========================================
+  AXIS TITLES
+  ========================================
 */
 
   svg +=
@@ -2199,65 +1870,12 @@ function render() {
 
 /*
   ========================================
-  CONNECTOR LINES
-  ========================================
-*/
-
-
-  points.forEach(
-    point => {
-
-      if (
-        !point.hasLogo
-      ) {
-
-        return;
-      }
-
-
-      const dx =
-        point.displayX -
-        point.actualX;
-
-
-      const dy =
-        point.displayY -
-        point.actualY;
-
-
-      const movedDistance =
-        Math.sqrt(
-          dx * dx +
-          dy * dy
-        );
-
-
-      if (
-        movedDistance >
-        7
-      ) {
-
-        svg +=
-          `
-          <line
-            class="connector"
-            x1="${point.actualX}"
-            y1="${point.actualY}"
-            x2="${point.displayX}"
-            y2="${point.displayY}"
-          />
-          `;
-      }
-    }
-  );
-
-
-/*
-  ========================================
   LOGOS + DOTS
   ========================================
-*/
 
+  Logos are always centered
+  exactly on their true data point.
+*/
 
   points.forEach(
     function(
@@ -2288,8 +1906,8 @@ function render() {
           `
           <image
             class="logo"
-            x="${point.displayX - LOGO_SIZE / 2}"
-            y="${point.displayY - LOGO_SIZE / 2}"
+            x="${point.actualX - LOGO_SIZE / 2}"
+            y="${point.actualY - LOGO_SIZE / 2}"
             width="${LOGO_SIZE}"
             height="${LOGO_SIZE}"
             href="${escapeHtml(displayLogo)}"
@@ -2335,7 +1953,6 @@ function render() {
   TOOLTIPS
   ========================================
 */
-
 
   const tooltip =
     document.getElementById(
@@ -2429,7 +2046,6 @@ function render() {
   START
   ========================================
 */
-
 
 client.config.subscribe(
   function(
