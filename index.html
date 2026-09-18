@@ -17,7 +17,8 @@
   </script>
 
   <style>
-    html, body {
+    html,
+    body {
       margin: 0;
       width: 100%;
       height: 100%;
@@ -37,7 +38,7 @@
     }
 
     .grid {
-      stroke: #e0e2e5;
+      stroke: #dfe2e5;
       stroke-width: 1;
     }
 
@@ -80,6 +81,12 @@
       stroke-width: 1.5;
     }
 
+    .connector {
+      stroke: #a6a9ad;
+      stroke-width: 1;
+      opacity: 0.7;
+    }
+
     .logo {
       cursor: pointer;
     }
@@ -88,7 +95,7 @@
       position: fixed;
       display: none;
       pointer-events: none;
-      background: rgba(25,25,25,.94);
+      background: rgba(25, 25, 25, 0.94);
       color: white;
       padding: 9px 11px;
       border-radius: 6px;
@@ -110,14 +117,24 @@
 <body>
 
 <div id="chart">
-  <div class="message">Loading Sigma data...</div>
+  <div class="message">
+    Loading Sigma data...
+  </div>
 </div>
 
 <div id="tooltip"></div>
 
 <script>
 
-const client = window.SigmaPlugin.client;
+const client =
+  window.SigmaPlugin.client;
+
+
+/*
+  ----------------------------------------
+  SIGMA PROPERTIES
+  ----------------------------------------
+*/
 
 client.config.configureEditorPanel([
   {
@@ -155,23 +172,69 @@ client.config.configureEditorPanel([
   }
 ]);
 
-let config = client.config.get() || {};
+
+/*
+  ----------------------------------------
+  GENERAL SETTINGS
+  ----------------------------------------
+*/
+
+const LOGO_SIZE = 90;
+
+/*
+  Increase this if you want logos
+  spread farther apart.
+*/
+
+const COLLISION_DISTANCE = 78;
+
+/*
+  Maximum distance a logo may move
+  away from its real data position.
+*/
+
+const MAX_DISPLACEMENT = 78;
+
+const COLLISION_ITERATIONS = 60;
+
+
+/*
+  ----------------------------------------
+  STATE
+  ----------------------------------------
+*/
+
+let config =
+  client.config.get() || {};
+
 let data = {};
 
 let currentSource = null;
+
 let stopData = null;
 
-/*
-  Stores already-normalized logos.
 
-  Once a logo has been processed,
-  we do not need to process it again.
+/*
+  ----------------------------------------
+  LOGO CACHE
+  ----------------------------------------
 */
 
-const normalizedLogoCache = new Map();
-const logosBeingProcessed = new Set();
+const normalizedLogoCache =
+  new Map();
+
+const logosBeingProcessed =
+  new Set();
+
+
+/*
+  ----------------------------------------
+  HELPERS
+  ----------------------------------------
+*/
 
 function escapeHtml(value) {
+
   return String(value ?? "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -179,9 +242,13 @@ function escapeHtml(value) {
     .replace(/"/g, "&quot;");
 }
 
+
 function numeric(value) {
 
-  if (typeof value === "number") {
+  if (
+    typeof value === "number"
+  ) {
+
     return Number.isFinite(value)
       ? value
       : null;
@@ -191,19 +258,22 @@ function numeric(value) {
     value === null ||
     value === undefined
   ) {
+
     return null;
   }
 
-  const n = Number(
-    String(value)
-      .replace(/[$,%]/g, "")
-      .trim()
-  );
+  const n =
+    Number(
+      String(value)
+        .replace(/[$,%]/g, "")
+        .trim()
+    );
 
   return Number.isFinite(n)
     ? n
     : null;
 }
+
 
 function formatMoney(value) {
 
@@ -217,337 +287,748 @@ function formatMoney(value) {
   ).format(value);
 }
 
+
 /*
-  ------------------------------------------------
+  ========================================
   AUTOMATIC LOGO NORMALIZATION
-  ------------------------------------------------
+  ========================================
 
-  This function:
+  This:
 
-  1. Loads the image
-  2. Finds the visible logo
-  3. Ignores transparent margins
-  4. Ignores large white margins
-  5. Crops the logo
-  6. Centers it
-  7. Places it into a standard square
-  8. Preserves aspect ratio
+  1. Loads each image
+  2. Detects transparent / solid background
+  3. Finds the visible logo
+  4. Crops excess space
+  5. Centers the visible logo
+  6. Makes logos feel much closer in size
+  7. Preserves proportions
 */
+
 
 function normalizeLogo(url) {
 
   if (
-    normalizedLogoCache.has(url)
+    normalizedLogoCache.has(url) ||
+    logosBeingProcessed.has(url)
   ) {
+
     return;
   }
 
-  if (
-    logosBeingProcessed.has(url)
-  ) {
-    return;
-  }
 
   logosBeingProcessed.add(url);
 
-  const img = new Image();
 
-  /*
-    Your GitHub Pages images are on the
-    same site as the plugin, so this
-    should allow us to inspect them.
-  */
+  const img =
+    new Image();
 
-  img.crossOrigin = "anonymous";
 
-  img.onload = function() {
+  img.crossOrigin =
+    "anonymous";
 
-    try {
 
-      /*
-        Keep processing reasonably small,
-        even if someone uploads a huge image.
-      */
+  img.onload =
+    function() {
 
-      const maxProcessSize = 1000;
+      try {
 
-      let processWidth =
-        img.naturalWidth;
+        /*
+          Avoid processing extremely
+          large source images.
+        */
 
-      let processHeight =
-        img.naturalHeight;
+        const maxProcessSize =
+          1000;
 
-      if (
-        processWidth > maxProcessSize ||
-        processHeight > maxProcessSize
-      ) {
 
-        const scale =
-          Math.min(
-            maxProcessSize / processWidth,
-            maxProcessSize / processHeight
+        let processWidth =
+          img.naturalWidth;
+
+
+        let processHeight =
+          img.naturalHeight;
+
+
+        if (
+          processWidth > maxProcessSize ||
+          processHeight > maxProcessSize
+        ) {
+
+          const scale =
+            Math.min(
+              maxProcessSize /
+              processWidth,
+
+              maxProcessSize /
+              processHeight
+            );
+
+
+          processWidth =
+            Math.round(
+              processWidth *
+              scale
+            );
+
+
+          processHeight =
+            Math.round(
+              processHeight *
+              scale
+            );
+        }
+
+
+        const canvas =
+          document.createElement(
+            "canvas"
           );
 
-        processWidth =
-          Math.round(
-            processWidth * scale
+
+        canvas.width =
+          processWidth;
+
+
+        canvas.height =
+          processHeight;
+
+
+        const ctx =
+          canvas.getContext(
+            "2d",
+            {
+              willReadFrequently: true
+            }
           );
 
-        processHeight =
-          Math.round(
-            processHeight * scale
-          );
-      }
 
-      const canvas =
-        document.createElement("canvas");
-
-      canvas.width =
-        processWidth;
-
-      canvas.height =
-        processHeight;
-
-      const ctx =
-        canvas.getContext(
-          "2d",
-          {
-            willReadFrequently: true
-          }
-        );
-
-      ctx.drawImage(
-        img,
-        0,
-        0,
-        processWidth,
-        processHeight
-      );
-
-      const imageData =
-        ctx.getImageData(
+        ctx.drawImage(
+          img,
           0,
           0,
           processWidth,
           processHeight
         );
 
-      const pixels =
-        imageData.data;
 
-      /*
-        Estimate the background color
-        from the four corners.
-
-        This helps us recognize images
-        that have a white background
-        instead of transparency.
-      */
-
-      function getPixel(x, y) {
-
-        const index =
-          (
-            y * processWidth +
-            x
-          ) * 4;
-
-        return {
-          r: pixels[index],
-          g: pixels[index + 1],
-          b: pixels[index + 2],
-          a: pixels[index + 3]
-        };
-      }
-
-      const corners = [
-        getPixel(0, 0),
-        getPixel(
-          processWidth - 1,
-          0
-        ),
-        getPixel(
-          0,
-          processHeight - 1
-        ),
-        getPixel(
-          processWidth - 1,
-          processHeight - 1
-        )
-      ];
-
-      const averageCornerAlpha =
-        corners.reduce(
-          (sum, p) =>
-            sum + p.a,
-          0
-        ) /
-        corners.length;
-
-      const backgroundTransparent =
-        averageCornerAlpha < 50;
-
-      const backgroundColor = {
-
-        r:
-          corners.reduce(
-            (sum, p) =>
-              sum + p.r,
-            0
-          ) /
-          corners.length,
-
-        g:
-          corners.reduce(
-            (sum, p) =>
-              sum + p.g,
-            0
-          ) /
-          corners.length,
-
-        b:
-          corners.reduce(
-            (sum, p) =>
-              sum + p.b,
-            0
-          ) /
-          corners.length
-      };
-
-      let minX =
-        processWidth;
-
-      let minY =
-        processHeight;
-
-      let maxX = -1;
-      let maxY = -1;
-
-      /*
-        Determines whether a pixel is
-        part of the visible logo.
-      */
-
-      function isVisiblePixel(
-        r,
-        g,
-        b,
-        a
-      ) {
-
-        /*
-          Fully transparent pixels
-          are always background.
-        */
-
-        if (a < 20) {
-          return false;
-        }
-
-        /*
-          Transparent-background PNG.
-        */
-
-        if (backgroundTransparent) {
-          return true;
-        }
-
-        /*
-          For white or solid-background
-          images, compare each pixel to
-          the background color.
-        */
-
-        const redDifference =
-          r - backgroundColor.r;
-
-        const greenDifference =
-          g - backgroundColor.g;
-
-        const blueDifference =
-          b - backgroundColor.b;
-
-        const distance =
-          Math.sqrt(
-            redDifference *
-            redDifference +
-
-            greenDifference *
-            greenDifference +
-
-            blueDifference *
-            blueDifference
+        const imageData =
+          ctx.getImageData(
+            0,
+            0,
+            processWidth,
+            processHeight
           );
 
-        /*
-          Higher number means we ignore
-          more subtle background noise.
-        */
 
-        return distance > 28;
-      }
+        const pixels =
+          imageData.data;
 
-      /*
-        Scan every pixel and find the
-        visible logo boundaries.
-      */
 
-      for (
-        let y = 0;
-        y < processHeight;
-        y++
-      ) {
+/*
+  Read one pixel.
+*/
 
-        for (
-          let x = 0;
-          x < processWidth;
-          x++
+        function getPixel(
+          x,
+          y
         ) {
 
           const index =
             (
-              y * processWidth +
+              y *
+              processWidth +
               x
-            ) * 4;
+            ) *
+            4;
 
-          const r =
-            pixels[index];
 
-          const g =
-            pixels[index + 1];
+          return {
 
-          const b =
-            pixels[index + 2];
+            r:
+              pixels[index],
 
-          const a =
-            pixels[index + 3];
+            g:
+              pixels[
+                index + 1
+              ],
+
+            b:
+              pixels[
+                index + 2
+              ],
+
+            a:
+              pixels[
+                index + 3
+              ]
+          };
+        }
+
+
+/*
+  Sample the corners to estimate
+  the image background.
+*/
+
+        const corners = [
+
+          getPixel(
+            0,
+            0
+          ),
+
+          getPixel(
+            processWidth - 1,
+            0
+          ),
+
+          getPixel(
+            0,
+            processHeight - 1
+          ),
+
+          getPixel(
+            processWidth - 1,
+            processHeight - 1
+          )
+        ];
+
+
+        const averageCornerAlpha =
+          corners.reduce(
+            (
+              sum,
+              pixel
+            ) =>
+              sum +
+              pixel.a,
+            0
+          ) /
+          corners.length;
+
+
+        const backgroundTransparent =
+          averageCornerAlpha < 50;
+
+
+        const backgroundColor = {
+
+          r:
+            corners.reduce(
+              (
+                sum,
+                pixel
+              ) =>
+                sum +
+                pixel.r,
+              0
+            ) /
+            corners.length,
+
+          g:
+            corners.reduce(
+              (
+                sum,
+                pixel
+              ) =>
+                sum +
+                pixel.g,
+              0
+            ) /
+            corners.length,
+
+          b:
+            corners.reduce(
+              (
+                sum,
+                pixel
+              ) =>
+                sum +
+                pixel.b,
+              0
+            ) /
+            corners.length
+        };
+
+
+        let minX =
+          processWidth;
+
+        let minY =
+          processHeight;
+
+        let maxX =
+          -1;
+
+        let maxY =
+          -1;
+
+
+/*
+  Determine whether a pixel
+  belongs to the visible logo.
+*/
+
+        function isVisiblePixel(
+          r,
+          g,
+          b,
+          a
+        ) {
+
+          /*
+            Ignore transparent pixels.
+          */
 
           if (
-            isVisiblePixel(
-              r,
-              g,
-              b,
-              a
-            )
+            a < 20
           ) {
 
-            if (x < minX) minX = x;
-            if (x > maxX) maxX = x;
+            return false;
+          }
 
-            if (y < minY) minY = y;
-            if (y > maxY) maxY = y;
+
+          /*
+            Transparent PNG.
+          */
+
+          if (
+            backgroundTransparent
+          ) {
+
+            return true;
+          }
+
+
+          /*
+            Compare pixel to estimated
+            background color.
+          */
+
+          const dr =
+            r -
+            backgroundColor.r;
+
+
+          const dg =
+            g -
+            backgroundColor.g;
+
+
+          const db =
+            b -
+            backgroundColor.b;
+
+
+          const distance =
+            Math.sqrt(
+              dr * dr +
+              dg * dg +
+              db * db
+            );
+
+
+          return distance > 28;
+        }
+
+
+/*
+  Scan the image and find
+  visible logo boundaries.
+*/
+
+        for (
+          let y = 0;
+          y < processHeight;
+          y++
+        ) {
+
+          for (
+            let x = 0;
+            x < processWidth;
+            x++
+          ) {
+
+            const index =
+              (
+                y *
+                processWidth +
+                x
+              ) *
+              4;
+
+
+            const r =
+              pixels[index];
+
+
+            const g =
+              pixels[
+                index + 1
+              ];
+
+
+            const b =
+              pixels[
+                index + 2
+              ];
+
+
+            const a =
+              pixels[
+                index + 3
+              ];
+
+
+            if (
+              isVisiblePixel(
+                r,
+                g,
+                b,
+                a
+              )
+            ) {
+
+              if (
+                x < minX
+              ) {
+                minX = x;
+              }
+
+
+              if (
+                x > maxX
+              ) {
+                maxX = x;
+              }
+
+
+              if (
+                y < minY
+              ) {
+                minY = y;
+              }
+
+
+              if (
+                y > maxY
+              ) {
+                maxY = y;
+              }
+            }
           }
         }
+
+
+/*
+  If detection fails,
+  just use the source image.
+*/
+
+        if (
+          maxX < minX ||
+          maxY < minY
+        ) {
+
+          normalizedLogoCache.set(
+            url,
+            url
+          );
+
+
+          logosBeingProcessed.delete(
+            url
+          );
+
+
+          render();
+
+
+          return;
+        }
+
+
+        let cropWidth =
+          maxX -
+          minX +
+          1;
+
+
+        let cropHeight =
+          maxY -
+          minY +
+          1;
+
+
+/*
+  Small safety padding
+  around the visible logo.
+*/
+
+        const paddingX =
+          Math.round(
+            cropWidth *
+            0.025
+          );
+
+
+        const paddingY =
+          Math.round(
+            cropHeight *
+            0.025
+          );
+
+
+        minX =
+          Math.max(
+            0,
+            minX -
+            paddingX
+          );
+
+
+        minY =
+          Math.max(
+            0,
+            minY -
+            paddingY
+          );
+
+
+        maxX =
+          Math.min(
+            processWidth - 1,
+            maxX +
+            paddingX
+          );
+
+
+        maxY =
+          Math.min(
+            processHeight - 1,
+            maxY +
+            paddingY
+          );
+
+
+        cropWidth =
+          maxX -
+          minX +
+          1;
+
+
+        cropHeight =
+          maxY -
+          minY +
+          1;
+
+
+/*
+  All logos are normalized
+  onto a 500 × 500 canvas.
+*/
+
+        const outputSize =
+          500;
+
+
+        const outputCanvas =
+          document.createElement(
+            "canvas"
+          );
+
+
+        outputCanvas.width =
+          outputSize;
+
+
+        outputCanvas.height =
+          outputSize;
+
+
+        const outputContext =
+          outputCanvas.getContext(
+            "2d"
+          );
+
+
+/*
+  ----------------------------------------
+  STRONG VISUAL SIZE NORMALIZATION
+  ----------------------------------------
+*/
+
+        const aspectRatio =
+          cropWidth /
+          cropHeight;
+
+
+/*
+  Normal logos fill about 92%
+  of the normalization canvas.
+*/
+
+        let targetSize =
+          outputSize *
+          0.92;
+
+
+/*
+  Very wide or very tall logos
+  get a little extra boost.
+
+  This helps wordmarks like
+  AdventHealth feel closer in size
+  to compact / square logos.
+*/
+
+        if (
+          aspectRatio > 2.2 ||
+          aspectRatio < 0.45
+        ) {
+
+          targetSize =
+            outputSize *
+            0.98;
+        }
+
+
+/*
+  Preserve the original proportions.
+*/
+
+        const fitScale =
+          Math.min(
+            targetSize /
+            cropWidth,
+
+            targetSize /
+            cropHeight
+          );
+
+
+        let drawWidth =
+          cropWidth *
+          fitScale;
+
+
+        let drawHeight =
+          cropHeight *
+          fitScale;
+
+
+/*
+  Safety cap.
+*/
+
+        const maxVisibleSize =
+          outputSize *
+          0.98;
+
+
+        if (
+          drawWidth >
+          maxVisibleSize
+        ) {
+
+          const correction =
+            maxVisibleSize /
+            drawWidth;
+
+
+          drawWidth *=
+            correction;
+
+
+          drawHeight *=
+            correction;
+        }
+
+
+        if (
+          drawHeight >
+          maxVisibleSize
+        ) {
+
+          const correction =
+            maxVisibleSize /
+            drawHeight;
+
+
+          drawWidth *=
+            correction;
+
+
+          drawHeight *=
+            correction;
+        }
+
+
+/*
+  Center the visible logo.
+*/
+
+        const drawX =
+          (
+            outputSize -
+            drawWidth
+          ) /
+          2;
+
+
+        const drawY =
+          (
+            outputSize -
+            drawHeight
+          ) /
+          2;
+
+
+        outputContext.clearRect(
+          0,
+          0,
+          outputSize,
+          outputSize
+        );
+
+
+        outputContext.drawImage(
+          canvas,
+
+          minX,
+          minY,
+          cropWidth,
+          cropHeight,
+
+          drawX,
+          drawY,
+          drawWidth,
+          drawHeight
+        );
+
+
+        const normalizedUrl =
+          outputCanvas.toDataURL(
+            "image/png"
+          );
+
+
+        normalizedLogoCache.set(
+          url,
+          normalizedUrl
+        );
+
+
+        logosBeingProcessed.delete(
+          url
+        );
+
+
+        render();
       }
 
-      /*
-        If nothing was detected,
-        just use the original image.
-      */
-
-      if (
-        maxX < minX ||
-        maxY < minY
+      catch (
+        error
       ) {
 
         normalizedLogoCache.set(
@@ -555,219 +1036,53 @@ function normalizeLogo(url) {
           url
         );
 
+
         logosBeingProcessed.delete(
           url
         );
 
+
         render();
-
-        return;
       }
+    };
 
-      let cropWidth =
-        maxX -
-        minX +
-        1;
 
-      let cropHeight =
-        maxY -
-        minY +
-        1;
-
-      /*
-        Add a small amount of padding
-        around the actual logo so it
-        doesn't feel cramped.
-      */
-
-      const paddingX =
-        Math.round(
-          cropWidth * 0.05
-        );
-
-      const paddingY =
-        Math.round(
-          cropHeight * 0.05
-        );
-
-      minX =
-        Math.max(
-          0,
-          minX - paddingX
-        );
-
-      minY =
-        Math.max(
-          0,
-          minY - paddingY
-        );
-
-      maxX =
-        Math.min(
-          processWidth - 1,
-          maxX + paddingX
-        );
-
-      maxY =
-        Math.min(
-          processHeight - 1,
-          maxY + paddingY
-        );
-
-      cropWidth =
-        maxX -
-        minX +
-        1;
-
-      cropHeight =
-        maxY -
-        minY +
-        1;
-
-      /*
-        Every normalized logo gets
-        placed onto the same
-        500 × 500 canvas.
-      */
-
-      const outputSize = 500;
-
-      const outputCanvas =
-        document.createElement(
-          "canvas"
-        );
-
-      outputCanvas.width =
-        outputSize;
-
-      outputCanvas.height =
-        outputSize;
-
-      const outputContext =
-        outputCanvas.getContext(
-          "2d"
-        );
-
-      /*
-        The visible logo occupies
-        approximately 86% of the
-        normalized canvas.
-
-        This makes different logos
-        feel much more consistent.
-      */
-
-      const targetSize =
-        outputSize * 0.86;
-
-      const fitScale =
-        Math.min(
-          targetSize / cropWidth,
-          targetSize / cropHeight
-        );
-
-      const drawWidth =
-        cropWidth *
-        fitScale;
-
-      const drawHeight =
-        cropHeight *
-        fitScale;
-
-      const drawX =
-        (
-          outputSize -
-          drawWidth
-        ) / 2;
-
-      const drawY =
-        (
-          outputSize -
-          drawHeight
-        ) / 2;
-
-      outputContext.drawImage(
-        canvas,
-
-        minX,
-        minY,
-        cropWidth,
-        cropHeight,
-
-        drawX,
-        drawY,
-        drawWidth,
-        drawHeight
-      );
-
-      const normalizedUrl =
-        outputCanvas.toDataURL(
-          "image/png"
-        );
-
-      normalizedLogoCache.set(
-        url,
-        normalizedUrl
-      );
-
-      logosBeingProcessed.delete(
-        url
-      );
-
-      /*
-        Re-render after normalization
-        is complete.
-      */
-
-      render();
-
-    } catch (error) {
-
-      /*
-        If anything goes wrong,
-        fall back to the original logo.
-      */
+  img.onerror =
+    function() {
 
       normalizedLogoCache.set(
         url,
         url
       );
 
+
       logosBeingProcessed.delete(
         url
       );
 
+
       render();
-    }
-  };
+    };
 
-  img.onerror = function() {
 
-    normalizedLogoCache.set(
-      url,
-      url
-    );
-
-    logosBeingProcessed.delete(
-      url
-    );
-
-    render();
-  };
-
-  img.src = url;
+  img.src =
+    url;
 }
 
+
 /*
-  Get either the normalized version
-  or temporarily use the original
-  while normalization is happening.
+  Return normalized image if ready.
+
+  Otherwise temporarily use the
+  original while processing.
 */
 
 function getLogoUrl(url) {
 
   if (
-    normalizedLogoCache.has(url)
+    normalizedLogoCache.has(
+      url
+    )
   ) {
 
     return normalizedLogoCache.get(
@@ -775,44 +1090,386 @@ function getLogoUrl(url) {
     );
   }
 
-  normalizeLogo(url);
+
+  normalizeLogo(
+    url
+  );
+
 
   return url;
 }
 
+
+/*
+  ========================================
+  AUTOMATIC COLLISION SPREADING
+  ========================================
+
+  actualX / actualY
+  = true data position
+
+  displayX / displayY
+  = where the logo is shown
+*/
+
+
+function spreadLogos(
+  points,
+  plotLeft,
+  plotTop,
+  plotRight,
+  plotBottom
+) {
+
+  const logoPoints =
+    points.filter(
+      point =>
+        point.hasLogo
+    );
+
+
+/*
+  Start logos at their
+  true positions.
+*/
+
+  logoPoints.forEach(
+    point => {
+
+      point.displayX =
+        point.actualX;
+
+
+      point.displayY =
+        point.actualY;
+    }
+  );
+
+
+/*
+  Multiple passes gently
+  separate overlapping logos.
+*/
+
+  for (
+    let iteration = 0;
+    iteration <
+    COLLISION_ITERATIONS;
+    iteration++
+  ) {
+
+    for (
+      let i = 0;
+      i <
+      logoPoints.length;
+      i++
+    ) {
+
+      for (
+        let j = i + 1;
+        j <
+        logoPoints.length;
+        j++
+      ) {
+
+        const a =
+          logoPoints[i];
+
+
+        const b =
+          logoPoints[j];
+
+
+        let dx =
+          b.displayX -
+          a.displayX;
+
+
+        let dy =
+          b.displayY -
+          a.displayY;
+
+
+        let distance =
+          Math.sqrt(
+            dx * dx +
+            dy * dy
+          );
+
+
+/*
+  If two points are exactly
+  on top of each other,
+  give them a deterministic
+  direction to separate.
+*/
+
+        if (
+          distance < 0.01
+        ) {
+
+          const seed =
+            (
+              (
+                i + 1
+              ) *
+              37 +
+
+              (
+                j + 1
+              ) *
+              53
+            ) %
+            360;
+
+
+          const angle =
+            seed *
+            Math.PI /
+            180;
+
+
+          dx =
+            Math.cos(
+              angle
+            );
+
+
+          dy =
+            Math.sin(
+              angle
+            );
+
+
+          distance =
+            1;
+        }
+
+
+        if (
+          distance <
+          COLLISION_DISTANCE
+        ) {
+
+          const overlap =
+            COLLISION_DISTANCE -
+            distance;
+
+
+          const push =
+            overlap *
+            0.40;
+
+
+          const nx =
+            dx /
+            distance;
+
+
+          const ny =
+            dy /
+            distance;
+
+
+          a.displayX -=
+            nx *
+            push;
+
+
+          a.displayY -=
+            ny *
+            push;
+
+
+          b.displayX +=
+            nx *
+            push;
+
+
+          b.displayY +=
+            ny *
+            push;
+        }
+      }
+    }
+
+
+/*
+  Gently pull logos back toward
+  their true data position.
+*/
+
+    logoPoints.forEach(
+      point => {
+
+        point.displayX +=
+          (
+            point.actualX -
+            point.displayX
+          ) *
+          0.03;
+
+
+        point.displayY +=
+          (
+            point.actualY -
+            point.displayY
+          ) *
+          0.03;
+
+
+/*
+  Limit how far a logo
+  can move.
+*/
+
+        let dx =
+          point.displayX -
+          point.actualX;
+
+
+        let dy =
+          point.displayY -
+          point.actualY;
+
+
+        const displacement =
+          Math.sqrt(
+            dx * dx +
+            dy * dy
+          );
+
+
+        if (
+          displacement >
+          MAX_DISPLACEMENT
+        ) {
+
+          const scale =
+            MAX_DISPLACEMENT /
+            displacement;
+
+
+          point.displayX =
+            point.actualX +
+            dx *
+            scale;
+
+
+          point.displayY =
+            point.actualY +
+            dy *
+            scale;
+        }
+
+
+/*
+  Keep logos inside
+  the plot area.
+*/
+
+        const halfLogo =
+          LOGO_SIZE /
+          2;
+
+
+        point.displayX =
+          Math.max(
+            plotLeft +
+            halfLogo,
+
+            Math.min(
+              plotRight -
+              halfLogo,
+
+              point.displayX
+            )
+          );
+
+
+        point.displayY =
+          Math.max(
+            plotTop +
+            halfLogo,
+
+            Math.min(
+              plotBottom -
+              halfLogo,
+
+              point.displayY
+            )
+          );
+      }
+    );
+  }
+}
+
+
+/*
+  ========================================
+  SIGMA DATA CONNECTION
+  ========================================
+*/
+
+
 function connectData() {
 
-  if (!config.source) {
+  if (
+    !config.source
+  ) {
+
     return;
   }
 
+
   if (
-    config.source === currentSource
+    config.source ===
+    currentSource
   ) {
 
     render();
+
     return;
   }
+
 
   currentSource =
     config.source;
 
-  if (stopData) {
+
+  if (
+    stopData
+  ) {
+
     stopData();
   }
+
 
   stopData =
     client.elements.subscribeToElementData(
       config.source,
-      function(nextData) {
+
+      function(
+        nextData
+      ) {
 
         data =
-          nextData || {};
+          nextData ||
+          {};
+
 
         render();
       }
     );
 }
+
+
+/*
+  ========================================
+  MAIN RENDER
+  ========================================
+*/
+
 
 function render() {
 
@@ -820,6 +1477,7 @@ function render() {
     document.getElementById(
       "chart"
     );
+
 
   if (
     !config.score ||
@@ -832,53 +1490,87 @@ function render() {
     return;
   }
 
+
   const scores =
-    data[config.score] || [];
+    data[
+      config.score
+    ] ||
+    [];
+
 
   const revenues =
-    data[config.revenue] || [];
+    data[
+      config.revenue
+    ] ||
+    [];
+
 
   const companies =
     config.company
-      ? data[config.company] || []
-      : [];
+      ?
+      data[
+        config.company
+      ] ||
+      []
+      :
+      [];
+
 
   const logos =
     config.logo
-      ? data[config.logo] || []
-      : [];
+      ?
+      data[
+        config.logo
+      ] ||
+      []
+      :
+      [];
 
-  /*
-    LOGO MODE DETECTION
-  */
+
+/*
+  Logo Mode is active whenever
+  the Logo URL column contains
+  valid image URLs.
+
+  Your Sigma dropdown makes
+  these URLs null in Dot mode.
+*/
 
   const logoMode =
     logos.some(
       logo =>
         logo &&
         /^https?:\/\//i.test(
-          String(logo)
+          String(
+            logo
+          )
         )
     );
 
-  /*
-    Logo mode = light gray
-    Dot mode = white
-  */
+
+/*
+  Background colors.
+*/
 
   const backgroundColor =
     logoMode
-      ? "#EEF0F2"
-      : "#FFFFFF";
+      ?
+      "#EEF0F2"
+      :
+      "#FFFFFF";
+
 
   container.style.background =
     backgroundColor;
 
+
   document.body.style.background =
     backgroundColor;
 
+
   document.documentElement.style.background =
     backgroundColor;
+
 
   if (
     !scores.length ||
@@ -891,44 +1583,82 @@ function render() {
     return;
   }
 
+
   const rowCount =
     Math.min(
       scores.length,
       revenues.length
     );
 
-  const points = [];
+
+  const points =
+    [];
+
 
   for (
     let i = 0;
-    i < rowCount;
+    i <
+    rowCount;
     i++
   ) {
 
     const x =
-      numeric(scores[i]);
+      numeric(
+        scores[i]
+      );
+
 
     const y =
-      numeric(revenues[i]);
+      numeric(
+        revenues[i]
+      );
+
 
     if (
       x === null ||
       y === null
     ) {
+
       continue;
     }
 
+
+    const logo =
+      logos[i] ||
+      "";
+
+
     points.push({
-      x: x,
-      y: y,
+
+      x:
+        x,
+
+      y:
+        y,
+
       company:
-        companies[i] || "",
+        companies[i] ||
+        "",
+
       logo:
-        logos[i] || ""
+        logo,
+
+      hasLogo:
+        Boolean(
+          logo &&
+          /^https?:\/\//i.test(
+            String(
+              logo
+            )
+          )
+        )
     });
   }
 
-  if (!points.length) {
+
+  if (
+    !points.length
+  ) {
 
     container.innerHTML =
       '<div class="message">No valid rows found.</div>';
@@ -936,66 +1666,122 @@ function render() {
     return;
   }
 
-  const width = 1000;
-  const height = 560;
+
+/*
+  ----------------------------------------
+  CHART SIZE
+  ----------------------------------------
+*/
+
+  const width =
+    1000;
+
+
+  const height =
+    560;
+
 
   const margin = {
-    top: 50,
-    right: 45,
-    bottom: 65,
-    left: 95
+
+    top:
+      50,
+
+    right:
+      45,
+
+    bottom:
+      65,
+
+    left:
+      95
   };
+
 
   const plotWidth =
     width -
     margin.left -
     margin.right;
 
+
   const plotHeight =
     height -
     margin.top -
     margin.bottom;
 
+
   const xs =
     points.map(
-      p => p.x
+      point =>
+        point.x
     );
+
 
   const ys =
     points.map(
-      p => p.y
+      point =>
+        point.y
     );
 
+
   const scoreIsDecimal =
-    Math.max(...xs) <= 1.5;
+    Math.max(
+      ...xs
+    ) <=
+    1.5;
+
 
   let minX =
-    Math.min(...xs);
+    Math.min(
+      ...xs
+    );
+
 
   let maxX =
-    Math.max(...xs);
+    Math.max(
+      ...xs
+    );
+
 
   let maxY =
-    Math.max(...ys);
+    Math.max(
+      ...ys
+    );
+
 
   const xPadding =
     Math.max(
-      (maxX - minX) * .07,
+      (
+        maxX -
+        minX
+      ) *
+      0.07,
+
       scoreIsDecimal
-        ? .01
-        : 1
+        ?
+        0.01
+        :
+        1
     );
 
-  minX -= xPadding;
-  maxX += xPadding;
 
-  if (scoreIsDecimal) {
+  minX -=
+    xPadding;
+
+
+  maxX +=
+    xPadding;
+
+
+  if (
+    scoreIsDecimal
+  ) {
 
     minX =
       Math.max(
         0,
         minX
       );
+
 
     maxX =
       Math.min(
@@ -1004,73 +1790,197 @@ function render() {
       );
   }
 
-  maxY *= 1.08;
 
-  function sx(value) {
+  maxY *=
+    1.08;
 
-    return margin.left +
+
+/*
+  ----------------------------------------
+  SCALES
+  ----------------------------------------
+*/
+
+
+  function sx(
+    value
+  ) {
+
+    return (
+      margin.left +
       (
-        (value - minX) /
-        (maxX - minX || 1)
+        (
+          value -
+          minX
+        ) /
+        (
+          maxX -
+          minX ||
+          1
+        )
       ) *
-      plotWidth;
+      plotWidth
+    );
   }
 
-  function sy(value) {
 
-    return margin.top +
+  function sy(
+    value
+  ) {
+
+    return (
+      margin.top +
       plotHeight -
       (
         value /
         maxY
       ) *
-      plotHeight;
+      plotHeight
+    );
   }
 
-  function formatScore(value) {
 
-    if (scoreIsDecimal) {
+  function formatScore(
+    value
+  ) {
+
+    if (
+      scoreIsDecimal
+    ) {
 
       return (
-        value * 100
-      ).toFixed(0) + "%";
+        value *
+        100
+      ).toFixed(
+        0
+      ) +
+      "%";
     }
 
-    return value.toFixed(0) + "%";
+
+    return value.toFixed(
+      0
+    ) +
+    "%";
   }
+
+
+/*
+  ----------------------------------------
+  AVERAGES
+  ----------------------------------------
+*/
+
 
   const avgX =
     xs.reduce(
-      (sum, value) =>
-        sum + value,
+      (
+        sum,
+        value
+      ) =>
+        sum +
+        value,
       0
     ) /
     xs.length;
 
+
   const avgY =
     ys.reduce(
-      (sum, value) =>
-        sum + value,
+      (
+        sum,
+        value
+      ) =>
+        sum +
+        value,
       0
     ) /
     ys.length;
 
-  /*
-    Actual SVG gets the background color
-    so Sigma cannot override it.
-  */
+
+/*
+  Calculate true positions.
+*/
+
+  points.forEach(
+    point => {
+
+      point.actualX =
+        sx(
+          point.x
+        );
+
+
+      point.actualY =
+        sy(
+          point.y
+        );
+
+
+      point.displayX =
+        point.actualX;
+
+
+      point.displayY =
+        point.actualY;
+    }
+  );
+
+
+/*
+  Only spread positions
+  when Logo mode is active.
+*/
+
+  if (
+    logoMode
+  ) {
+
+    spreadLogos(
+      points,
+
+      margin.left,
+
+      margin.top,
+
+      width -
+      margin.right,
+
+      height -
+      margin.bottom
+    );
+  }
+
+
+/*
+  ========================================
+  BUILD SVG
+  ========================================
+*/
+
 
   let svg =
-    `<svg viewBox="0 0 ${width} ${height}">
+    `
+    <svg
+      viewBox="0 0 ${width} ${height}"
+    >
+
       <rect
         x="0"
         y="0"
         width="${width}"
         height="${height}"
         fill="${backgroundColor}"
-      />`;
+      />
+    `;
 
-  svg += `
+
+/*
+  Title
+*/
+
+  svg +=
+    `
     <text
       class="title"
       x="18"
@@ -1078,13 +1988,24 @@ function render() {
     >
       Deal Score Plot in Relation to Revenue
     </text>
-  `;
+    `;
 
-  const ySteps = 8;
+
+/*
+  ----------------------------------------
+  Y GRID
+  ----------------------------------------
+*/
+
+
+  const ySteps =
+    8;
+
 
   for (
     let i = 0;
-    i <= ySteps;
+    i <=
+    ySteps;
     i++
   ) {
 
@@ -1093,75 +2014,105 @@ function render() {
       i /
       ySteps;
 
-    const y =
-      sy(value);
 
-    svg += `
+    const y =
+      sy(
+        value
+      );
+
+
+    svg +=
+      `
       <line
         class="grid"
         x1="${margin.left}"
         y1="${y}"
-        x2="${width-margin.right}"
+        x2="${width - margin.right}"
         y2="${y}"
       />
 
       <text
         class="tick"
-        x="${margin.left-10}"
-        y="${y+4}"
+        x="${margin.left - 10}"
+        y="${y + 4}"
         text-anchor="end"
       >
         ${formatMoney(value)}
       </text>
-    `;
+      `;
   }
 
-  const xSteps = 8;
+
+/*
+  ----------------------------------------
+  X GRID
+  ----------------------------------------
+*/
+
+
+  const xSteps =
+    8;
+
 
   for (
     let i = 0;
-    i <= xSteps;
+    i <=
+    xSteps;
     i++
   ) {
 
     const value =
       minX +
       (
-        (maxX-minX) *
+        (
+          maxX -
+          minX
+        ) *
         i /
         xSteps
       );
 
-    const x =
-      sx(value);
 
-    svg += `
+    const x =
+      sx(
+        value
+      );
+
+
+    svg +=
+      `
       <line
         class="grid"
         x1="${x}"
         y1="${margin.top}"
         x2="${x}"
-        y2="${height-margin.bottom}"
+        y2="${height - margin.bottom}"
       />
 
       <text
         class="tick"
         x="${x}"
-        y="${height-margin.bottom+22}"
+        y="${height - margin.bottom + 22}"
         text-anchor="middle"
       >
         ${formatScore(value)}
       </text>
-    `;
+      `;
   }
 
-  svg += `
+
+/*
+  Axes
+*/
+
+  svg +=
+    `
     <line
       class="axis"
       x1="${margin.left}"
-      y1="${height-margin.bottom}"
-      x2="${width-margin.right}"
-      y2="${height-margin.bottom}"
+      y1="${height - margin.bottom}"
+      x2="${width - margin.right}"
+      y2="${height - margin.bottom}"
     />
 
     <line
@@ -1169,23 +2120,32 @@ function render() {
       x1="${margin.left}"
       y1="${margin.top}"
       x2="${margin.left}"
-      y2="${height-margin.bottom}"
+      y2="${height - margin.bottom}"
     />
-  `;
+    `;
 
-  svg += `
+
+/*
+  ----------------------------------------
+  AVERAGE LINES
+  ----------------------------------------
+*/
+
+
+  svg +=
+    `
     <line
       class="avg-line"
       x1="${sx(avgX)}"
       y1="${margin.top}"
       x2="${sx(avgX)}"
-      y2="${height-margin.bottom}"
+      y2="${height - margin.bottom}"
     />
 
     <text
       class="avg-label"
-      x="${sx(avgX)+5}"
-      y="${margin.top+13}"
+      x="${sx(avgX) + 5}"
+      y="${margin.top + 13}"
     >
       Avg Deal Score
     </text>
@@ -1194,25 +2154,31 @@ function render() {
       class="avg-line"
       x1="${margin.left}"
       y1="${sy(avgY)}"
-      x2="${width-margin.right}"
+      x2="${width - margin.right}"
       y2="${sy(avgY)}"
     />
 
     <text
       class="avg-label"
-      x="${width-margin.right-5}"
-      y="${sy(avgY)-6}"
+      x="${width - margin.right - 5}"
+      y="${sy(avgY) - 6}"
       text-anchor="end"
     >
       Avg AAV Net
     </text>
-  `;
+    `;
 
-  svg += `
+
+/*
+  Axis titles
+*/
+
+  svg +=
+    `
     <text
       class="axis-title"
-      x="${margin.left + plotWidth/2}"
-      y="${height-15}"
+      x="${margin.left + plotWidth / 2}"
+      y="${height - 15}"
       text-anchor="middle"
     >
       Deal Score
@@ -1222,93 +2188,169 @@ function render() {
       class="axis-title"
       transform="translate(
         22
-        ${margin.top + plotHeight/2}
+        ${margin.top + plotHeight / 2}
       ) rotate(-90)"
       text-anchor="middle"
     >
       AAV Net
     </text>
-  `;
+    `;
 
-  /*
-    POINTS
-  */
+
+/*
+  ========================================
+  CONNECTOR LINES
+  ========================================
+*/
+
 
   points.forEach(
-    function(point, index) {
+    point => {
 
-      const x =
-        sx(point.x);
+      if (
+        !point.hasLogo
+      ) {
 
-      const y =
-        sy(point.y);
+        return;
+      }
 
-      svg += `
+
+      const dx =
+        point.displayX -
+        point.actualX;
+
+
+      const dy =
+        point.displayY -
+        point.actualY;
+
+
+      const movedDistance =
+        Math.sqrt(
+          dx * dx +
+          dy * dy
+        );
+
+
+      if (
+        movedDistance >
+        7
+      ) {
+
+        svg +=
+          `
+          <line
+            class="connector"
+            x1="${point.actualX}"
+            y1="${point.actualY}"
+            x2="${point.displayX}"
+            y2="${point.displayY}"
+          />
+          `;
+      }
+    }
+  );
+
+
+/*
+  ========================================
+  LOGOS + DOTS
+  ========================================
+*/
+
+
+  points.forEach(
+    function(
+      point,
+      index
+    ) {
+
+      svg +=
+        `
         <g
           class="point"
           data-index="${index}"
         >
-      `;
+        `;
+
 
       if (
-        point.logo &&
-        /^https?:\/\//i.test(
-          String(point.logo)
-        )
+        point.hasLogo
       ) {
-
-        /*
-          Automatically use the
-          normalized logo.
-        */
 
         const displayLogo =
           getLogoUrl(
             point.logo
           );
 
-        svg += `
+
+        svg +=
+          `
           <image
             class="logo"
-            x="${x-45}"
-            y="${y-45}"
-            width="90"
-            height="90"
+            x="${point.displayX - LOGO_SIZE / 2}"
+            y="${point.displayY - LOGO_SIZE / 2}"
+            width="${LOGO_SIZE}"
+            height="${LOGO_SIZE}"
             href="${escapeHtml(displayLogo)}"
             preserveAspectRatio="xMidYMid meet"
           />
-        `;
-
-      } else {
-
-        svg += `
-          <circle
-            class="dot"
-            cx="${x}"
-            cy="${y}"
-            r="6"
-          />
-        `;
+          `;
       }
 
-      svg += `</g>`;
+      else {
+
+        svg +=
+          `
+          <circle
+            class="dot"
+            cx="${point.actualX}"
+            cy="${point.actualY}"
+            r="6"
+          />
+          `;
+      }
+
+
+      svg +=
+        `
+        </g>
+        `;
     }
   );
 
-  svg += `</svg>`;
+
+  svg +=
+    `
+    </svg>
+    `;
+
 
   container.innerHTML =
     svg;
+
+
+/*
+  ========================================
+  TOOLTIPS
+  ========================================
+*/
+
 
   const tooltip =
     document.getElementById(
       "tooltip"
     );
 
+
   container
-    .querySelectorAll(".point")
+    .querySelectorAll(
+      ".point"
+    )
     .forEach(
-      function(element) {
+      function(
+        element
+      ) {
 
         const point =
           points[
@@ -1317,33 +2359,48 @@ function render() {
             )
           ];
 
+
         element.addEventListener(
           "mousemove",
-          function(event) {
+
+          function(
+            event
+          ) {
 
             tooltip.innerHTML =
-              `<strong>${escapeHtml(
-                point.company ||
-                "Company"
-              )}</strong>
+              `
+              <strong>
+                ${escapeHtml(
+                  point.company ||
+                  "Company"
+                )}
+              </strong>
+
               <br>
+
               Deal Score:
               ${formatScore(
                 point.x
               )}
+
               <br>
+
               AAV Net:
               ${formatMoney(
                 point.y
-              )}`;
+              )}
+              `;
+
 
             tooltip.style.display =
               "block";
+
 
             tooltip.style.left =
               event.clientX +
               12 +
               "px";
+
 
             tooltip.style.top =
               event.clientY +
@@ -1352,8 +2409,10 @@ function render() {
           }
         );
 
+
         element.addEventListener(
           "mouseleave",
+
           function() {
 
             tooltip.style.display =
@@ -1364,19 +2423,36 @@ function render() {
     );
 }
 
+
+/*
+  ========================================
+  START
+  ========================================
+*/
+
+
 client.config.subscribe(
-  function(nextConfig) {
+  function(
+    nextConfig
+  ) {
 
     config =
-      nextConfig || {};
+      nextConfig ||
+      {};
+
 
     connectData();
+
+
     render();
   }
 );
 
+
 config =
-  client.config.get() || {};
+  client.config.get() ||
+  {};
+
 
 connectData();
 
