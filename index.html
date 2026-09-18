@@ -576,6 +576,16 @@ function render() {
     </text>
   `;
 
+  /*
+    POINTS
+
+    Logo URL exists:
+      Show 90x90 logo only
+
+    Logo URL blank:
+      Show blue dot
+  */
+
   points.forEach(
     function(point, index) {
 
@@ -590,12 +600,6 @@ function render() {
           class="point"
           data-index="${index}"
         >
-          <circle
-            class="dot"
-            cx="${x}"
-            cy="${y}"
-            r="6"
-          />
       `;
 
       if (
@@ -608,12 +612,23 @@ function render() {
         svg += `
           <image
             class="logo"
-            x="${x-35}"
-            y="${y-35}"
+            x="${x-45}"
+            y="${y-45}"
             width="90"
             height="90"
             href="${escapeHtml(point.logo)}"
             preserveAspectRatio="xMidYMid meet"
+          />
+        `;
+
+      } else {
+
+        svg += `
+          <circle
+            class="dot"
+            cx="${x}"
+            cy="${y}"
+            r="6"
           />
         `;
       }
