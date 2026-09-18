@@ -37,7 +37,7 @@
     }
 
     .grid {
-      stroke: #e5e5e5;
+      stroke: #e0e2e5;
       stroke-width: 1;
     }
 
@@ -257,6 +257,46 @@ function render() {
       ? data[config.logo] || []
       : [];
 
+  /*
+    DETECT LOGO MODE
+
+    When your Sigma dropdown is set to Logos,
+    Logo URL contains image URLs.
+
+    When dropdown is set to Dots,
+    Logo URL becomes Null.
+  */
+
+  const logoMode =
+    logos.some(
+      logo =>
+        logo &&
+        /^https?:\/\//i.test(
+          String(logo)
+        )
+    );
+
+  /*
+    BACKGROUND
+
+    Logos = very light gray
+    Dots = white
+  */
+
+  const backgroundColor =
+    logoMode
+      ? "#F2F3F5"
+      : "#FFFFFF";
+
+  container.style.background =
+    backgroundColor;
+
+  document.body.style.background =
+    backgroundColor;
+
+  document.documentElement.style.background =
+    backgroundColor;
+
   if (
     !scores.length ||
     !revenues.length
@@ -361,11 +401,18 @@ function render() {
   maxX += xPadding;
 
   if (scoreIsDecimal) {
+
     minX =
-      Math.max(0, minX);
+      Math.max(
+        0,
+        minX
+      );
 
     maxX =
-      Math.min(1, maxX);
+      Math.min(
+        1,
+        maxX
+      );
   }
 
   maxY *= 1.08;
@@ -384,13 +431,17 @@ function render() {
 
     return margin.top +
       plotHeight -
-      (value / maxY) *
+      (
+        value /
+        maxY
+      ) *
       plotHeight;
   }
 
   function formatScore(value) {
 
     if (scoreIsDecimal) {
+
       return (
         value * 100
       ).toFixed(0) + "%";
@@ -404,14 +455,16 @@ function render() {
       (sum, value) =>
         sum + value,
       0
-    ) / xs.length;
+    ) /
+    xs.length;
 
   const avgY =
     ys.reduce(
       (sum, value) =>
         sum + value,
       0
-    ) / ys.length;
+    ) /
+    ys.length;
 
   let svg =
     `<svg viewBox="0 0 ${width} ${height}">`;
@@ -579,11 +632,12 @@ function render() {
   /*
     POINTS
 
-    Logo URL exists:
-      Show 90x90 logo only
+    Logo exists:
+      90 x 90 logo
+      NO blue dot underneath
 
-    Logo URL blank:
-      Show blue dot
+    No logo:
+      normal blue dot
   */
 
   points.forEach(
@@ -639,10 +693,13 @@ function render() {
 
   svg += `</svg>`;
 
-  container.innerHTML = svg;
+  container.innerHTML =
+    svg;
 
   const tooltip =
-    document.getElementById("tooltip");
+    document.getElementById(
+      "tooltip"
+    );
 
   container
     .querySelectorAll(".point")
