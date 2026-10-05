@@ -85,6 +85,18 @@
       cursor: pointer;
     }
 
+    .break-line {
+      stroke: #8a8a8a;
+      stroke-width: 1.3;
+      stroke-dasharray: 4 4;
+    }
+
+    .break-label {
+      fill: #666;
+      font-size: 10px;
+      font-style: italic;
+    }
+
     #tooltip {
       position: fixed;
       display: none;
@@ -122,6 +134,7 @@
 
 const client =
   window.SigmaPlugin.client;
+
 
 /*
   ========================================
@@ -165,6 +178,7 @@ client.config.configureEditorPanel([
   }
 ]);
 
+
 /*
   ========================================
   SETTINGS
@@ -172,6 +186,18 @@ client.config.configureEditorPanel([
 */
 
 const LOGO_SIZE = 90;
+
+const CHART_WIDTH = 1600;
+const CHART_HEIGHT = 800;
+
+
+/*
+  Give the lower-value section
+  most of the vertical chart space.
+*/
+
+const LOWER_SECTION_SHARE = 0.72;
+
 
 /*
   ========================================
@@ -188,6 +214,7 @@ let currentSource = null;
 
 let stopData = null;
 
+
 /*
   ========================================
   LOGO NORMALIZATION CACHE
@@ -200,6 +227,7 @@ const normalizedLogoCache =
 const logosBeingProcessed =
   new Set();
 
+
 /*
   ========================================
   HELPERS
@@ -207,6 +235,7 @@ const logosBeingProcessed =
 */
 
 function escapeHtml(value) {
+
   return String(value ?? "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -214,8 +243,11 @@ function escapeHtml(value) {
     .replace(/"/g, "&quot;");
 }
 
+
 function numeric(value) {
+
   if (typeof value === "number") {
+
     return Number.isFinite(value)
       ? value
       : null;
@@ -225,6 +257,7 @@ function numeric(value) {
     value === null ||
     value === undefined
   ) {
+
     return null;
   }
 
@@ -240,7 +273,9 @@ function numeric(value) {
     : null;
 }
 
+
 function formatMoney(value) {
+
   return new Intl.NumberFormat(
     "en-US",
     {
@@ -251,18 +286,11 @@ function formatMoney(value) {
   ).format(value);
 }
 
+
 /*
   ========================================
   AUTOMATIC LOGO NORMALIZATION
   ========================================
-
-  This:
-  1. Detects the visible logo
-  2. Removes transparent / white margins
-  3. Centers the logo
-  4. Uses visual-area normalization
-     so logos feel more similar in size
-  5. Preserves original proportions
 */
 
 function normalizeLogo(url) {
@@ -271,16 +299,21 @@ function normalizeLogo(url) {
     normalizedLogoCache.has(url) ||
     logosBeingProcessed.has(url)
   ) {
+
     return;
   }
 
+
   logosBeingProcessed.add(url);
+
 
   const img =
     new Image();
 
+
   img.crossOrigin =
     "anonymous";
+
 
   img.onload =
     function() {
@@ -290,43 +323,58 @@ function normalizeLogo(url) {
         const maxProcessSize =
           1000;
 
+
         let processWidth =
           img.naturalWidth;
 
+
         let processHeight =
           img.naturalHeight;
+
 
         if (
           processWidth > maxProcessSize ||
           processHeight > maxProcessSize
         ) {
+
           const scale =
             Math.min(
-              maxProcessSize / processWidth,
-              maxProcessSize / processHeight
+              maxProcessSize /
+              processWidth,
+
+              maxProcessSize /
+              processHeight
             );
+
 
           processWidth =
             Math.round(
-              processWidth * scale
+              processWidth *
+              scale
             );
+
 
           processHeight =
             Math.round(
-              processHeight * scale
+              processHeight *
+              scale
             );
         }
+
 
         const canvas =
           document.createElement(
             "canvas"
           );
 
+
         canvas.width =
           processWidth;
 
+
         canvas.height =
           processHeight;
+
 
         const ctx =
           canvas.getContext(
@@ -336,6 +384,7 @@ function normalizeLogo(url) {
             }
           );
 
+
         ctx.drawImage(
           img,
           0,
@@ -343,6 +392,7 @@ function normalizeLogo(url) {
           processWidth,
           processHeight
         );
+
 
         const imageData =
           ctx.getImageData(
@@ -352,10 +402,16 @@ function normalizeLogo(url) {
             processHeight
           );
 
+
         const pixels =
           imageData.data;
 
-        function getPixel(x, y) {
+
+        function getPixel(
+          x,
+          y
+        ) {
+
           const index =
             (
               y *
@@ -364,52 +420,104 @@ function normalizeLogo(url) {
             ) *
             4;
 
+
           return {
-            r: pixels[index],
-            g: pixels[index + 1],
-            b: pixels[index + 2],
-            a: pixels[index + 3]
+
+            r:
+              pixels[index],
+
+            g:
+              pixels[index + 1],
+
+            b:
+              pixels[index + 2],
+
+            a:
+              pixels[index + 3]
           };
         }
 
+
         const corners = [
-          getPixel(0, 0),
-          getPixel(processWidth - 1, 0),
-          getPixel(0, processHeight - 1),
-          getPixel(processWidth - 1, processHeight - 1)
+
+          getPixel(
+            0,
+            0
+          ),
+
+          getPixel(
+            processWidth - 1,
+            0
+          ),
+
+          getPixel(
+            0,
+            processHeight - 1
+          ),
+
+          getPixel(
+            processWidth - 1,
+            processHeight - 1
+          )
         ];
+
 
         const averageCornerAlpha =
           corners.reduce(
-            (sum, pixel) =>
-              sum + pixel.a,
+            (
+              sum,
+              pixel
+            ) =>
+              sum +
+              pixel.a,
             0
           ) /
           corners.length;
 
+
         const backgroundTransparent =
           averageCornerAlpha < 50;
 
+
         const backgroundColor = {
+
           r:
             corners.reduce(
-              (sum, pixel) =>
-                sum + pixel.r,
+              (
+                sum,
+                pixel
+              ) =>
+                sum +
+                pixel.r,
               0
-            ) / corners.length,
+            ) /
+            corners.length,
+
           g:
             corners.reduce(
-              (sum, pixel) =>
-                sum + pixel.g,
+              (
+                sum,
+                pixel
+              ) =>
+                sum +
+                pixel.g,
               0
-            ) / corners.length,
+            ) /
+            corners.length,
+
           b:
             corners.reduce(
-              (sum, pixel) =>
-                sum + pixel.b,
+              (
+                sum,
+                pixel
+              ) =>
+                sum +
+                pixel.b,
               0
-            ) / corners.length
+            ) /
+            corners.length
         };
+
 
         let minX =
           processWidth;
@@ -423,28 +531,44 @@ function normalizeLogo(url) {
         let maxY =
           -1;
 
+
         function isVisiblePixel(
           r,
           g,
           b,
           a
         ) {
-          if (a < 20) {
+
+          if (
+            a < 20
+          ) {
+
             return false;
           }
 
-          if (backgroundTransparent) {
+
+          if (
+            backgroundTransparent
+          ) {
+
             return true;
           }
 
+
           const dr =
-            r - backgroundColor.r;
+            r -
+            backgroundColor.r;
+
 
           const dg =
-            g - backgroundColor.g;
+            g -
+            backgroundColor.g;
+
 
           const db =
-            b - backgroundColor.b;
+            b -
+            backgroundColor.b;
+
 
           const distance =
             Math.sqrt(
@@ -453,19 +577,23 @@ function normalizeLogo(url) {
               db * db
             );
 
+
           return distance > 28;
         }
+
 
         for (
           let y = 0;
           y < processHeight;
           y++
         ) {
+
           for (
             let x = 0;
             x < processWidth;
             x++
           ) {
+
             const index =
               (
                 y *
@@ -474,17 +602,22 @@ function normalizeLogo(url) {
               ) *
               4;
 
+
             const r =
               pixels[index];
+
 
             const g =
               pixels[index + 1];
 
+
             const b =
               pixels[index + 2];
 
+
             const a =
               pixels[index + 3];
+
 
             if (
               isVisiblePixel(
@@ -494,171 +627,256 @@ function normalizeLogo(url) {
                 a
               )
             ) {
-              if (x < minX) {
-                minX = x;
+
+              if (
+                x < minX
+              ) {
+
+                minX =
+                  x;
               }
 
-              if (x > maxX) {
-                maxX = x;
+
+              if (
+                x > maxX
+              ) {
+
+                maxX =
+                  x;
               }
 
-              if (y < minY) {
-                minY = y;
+
+              if (
+                y < minY
+              ) {
+
+                minY =
+                  y;
               }
 
-              if (y > maxY) {
-                maxY = y;
+
+              if (
+                y > maxY
+              ) {
+
+                maxY =
+                  y;
               }
             }
           }
         }
 
+
         if (
           maxX < minX ||
           maxY < minY
         ) {
+
           normalizedLogoCache.set(
             url,
             url
           );
 
+
           logosBeingProcessed.delete(
             url
           );
 
+
           render();
+
 
           return;
         }
 
+
         let cropWidth =
-          maxX - minX + 1;
+          maxX -
+          minX +
+          1;
+
 
         let cropHeight =
-          maxY - minY + 1;
+          maxY -
+          minY +
+          1;
+
 
         const paddingX =
           Math.round(
-            cropWidth * 0.02
+            cropWidth *
+            0.02
           );
+
 
         const paddingY =
           Math.round(
-            cropHeight * 0.02
+            cropHeight *
+            0.02
           );
+
 
         minX =
           Math.max(
             0,
-            minX - paddingX
+            minX -
+            paddingX
           );
+
 
         minY =
           Math.max(
             0,
-            minY - paddingY
+            minY -
+            paddingY
           );
+
 
         maxX =
           Math.min(
-            processWidth - 1,
-            maxX + paddingX
+            processWidth -
+            1,
+
+            maxX +
+            paddingX
           );
+
 
         maxY =
           Math.min(
-            processHeight - 1,
-            maxY + paddingY
+            processHeight -
+            1,
+
+            maxY +
+            paddingY
           );
 
+
         cropWidth =
-          maxX - minX + 1;
+          maxX -
+          minX +
+          1;
+
 
         cropHeight =
-          maxY - minY + 1;
+          maxY -
+          minY +
+          1;
+
 
         const outputSize =
           500;
+
 
         const outputCanvas =
           document.createElement(
             "canvas"
           );
 
+
         outputCanvas.width =
           outputSize;
 
+
         outputCanvas.height =
           outputSize;
+
 
         const outputContext =
           outputCanvas.getContext(
             "2d"
           );
 
+
         /*
           ========================================
           VISUAL AREA NORMALIZATION
           ========================================
-
-          Make the visible logos feel
-          more equal in size by targeting
-          similar total visual area,
-          not just equal longest side.
         */
 
         const aspectRatio =
-          cropWidth / cropHeight;
+          cropWidth /
+          cropHeight;
+
 
         const targetArea =
           outputSize *
           outputSize *
           0.28;
 
+
         let drawWidth =
           Math.sqrt(
-            targetArea * aspectRatio
+            targetArea *
+            aspectRatio
           );
+
 
         let drawHeight =
           Math.sqrt(
-            targetArea / aspectRatio
+            targetArea /
+            aspectRatio
           );
 
+
         const maxDimension =
-          outputSize * 0.98;
+          outputSize *
+          0.98;
+
 
         if (
-          drawWidth > maxDimension
+          drawWidth >
+          maxDimension
         ) {
-          const correction =
-            maxDimension / drawWidth;
 
-          drawWidth *= correction;
-          drawHeight *= correction;
+          const correction =
+            maxDimension /
+            drawWidth;
+
+
+          drawWidth *=
+            correction;
+
+
+          drawHeight *=
+            correction;
         }
+
 
         if (
-          drawHeight > maxDimension
+          drawHeight >
+          maxDimension
         ) {
-          const correction =
-            maxDimension / drawHeight;
 
-          drawWidth *= correction;
-          drawHeight *= correction;
+          const correction =
+            maxDimension /
+            drawHeight;
+
+
+          drawWidth *=
+            correction;
+
+
+          drawHeight *=
+            correction;
         }
+
 
         const drawX =
           (
             outputSize -
             drawWidth
-          ) / 2;
+          ) /
+          2;
+
 
         const drawY =
           (
             outputSize -
             drawHeight
-          ) / 2;
+          ) /
+          2;
+
 
         outputContext.clearRect(
           0,
@@ -667,80 +885,109 @@ function normalizeLogo(url) {
           outputSize
         );
 
+
         outputContext.drawImage(
           canvas,
+
           minX,
           minY,
           cropWidth,
           cropHeight,
+
           drawX,
           drawY,
           drawWidth,
           drawHeight
         );
 
+
         const normalizedUrl =
           outputCanvas.toDataURL(
             "image/png"
           );
+
 
         normalizedLogoCache.set(
           url,
           normalizedUrl
         );
 
+
         logosBeingProcessed.delete(
           url
         );
 
+
         render();
       }
 
-      catch (error) {
+      catch (
+        error
+      ) {
+
         normalizedLogoCache.set(
           url,
           url
         );
 
+
         logosBeingProcessed.delete(
           url
         );
+
 
         render();
       }
     };
 
+
   img.onerror =
     function() {
+
       normalizedLogoCache.set(
         url,
         url
       );
 
+
       logosBeingProcessed.delete(
         url
       );
 
+
       render();
     };
+
 
   img.src =
     url;
 }
 
-function getLogoUrl(url) {
+
+function getLogoUrl(
+  url
+) {
+
   if (
-    normalizedLogoCache.has(url)
+    normalizedLogoCache.has(
+      url
+    )
   ) {
+
     return normalizedLogoCache.get(
       url
     );
   }
 
-  normalizeLogo(url);
+
+  normalizeLogo(
+    url
+  );
+
 
   return url;
 }
+
 
 /*
   ========================================
@@ -750,35 +997,55 @@ function getLogoUrl(url) {
 
 function connectData() {
 
-  if (!config.source) {
+  if (
+    !config.source
+  ) {
+
     return;
   }
+
 
   if (
     config.source ===
     currentSource
   ) {
+
     render();
+
     return;
   }
+
 
   currentSource =
     config.source;
 
-  if (stopData) {
+
+  if (
+    stopData
+  ) {
+
     stopData();
   }
+
 
   stopData =
     client.elements.subscribeToElementData(
       config.source,
-      function(nextData) {
+
+      function(
+        nextData
+      ) {
+
         data =
-          nextData || {};
+          nextData ||
+          {};
+
+
         render();
       }
     );
 }
+
 
 /*
   ========================================
@@ -793,62 +1060,98 @@ function render() {
       "chart"
     );
 
+
   if (
     !config.score ||
     !config.revenue
   ) {
+
     container.innerHTML =
       '<div class="message">Select Deal Score and AAV Net.</div>';
+
     return;
   }
 
+
   const scores =
-    data[config.score] || [];
+    data[
+      config.score
+    ] ||
+    [];
+
 
   const revenues =
-    data[config.revenue] || [];
+    data[
+      config.revenue
+    ] ||
+    [];
+
 
   const companies =
     config.company
-      ? data[config.company] || []
-      : [];
+      ?
+      data[
+        config.company
+      ] ||
+      []
+      :
+      [];
+
 
   const logos =
     config.logo
-      ? data[config.logo] || []
-      : [];
+      ?
+      data[
+        config.logo
+      ] ||
+      []
+      :
+      [];
+
 
   const logoMode =
     logos.some(
       logo =>
         logo &&
         /^https?:\/\//i.test(
-          String(logo)
+          String(
+            logo
+          )
         )
     );
 
+
   const backgroundColor =
     logoMode
-      ? "#EEF0F2"
-      : "#FFFFFF";
+      ?
+      "#EEF0F2"
+      :
+      "#FFFFFF";
+
 
   container.style.background =
     backgroundColor;
 
+
   document.body.style.background =
     backgroundColor;
 
+
   document.documentElement.style.background =
     backgroundColor;
+
 
   if (
     !scores.length ||
     !revenues.length
   ) {
+
     container.innerHTML =
       '<div class="message">Waiting for Sigma data...</div>';
+
     return;
   }
+
 
   const rowCount =
     Math.min(
@@ -856,50 +1159,82 @@ function render() {
       revenues.length
     );
 
-  const points = [];
+
+  const points =
+    [];
+
 
   for (
     let i = 0;
-    i < rowCount;
+    i <
+    rowCount;
     i++
   ) {
+
     const x =
-      numeric(scores[i]);
+      numeric(
+        scores[i]
+      );
+
 
     const y =
-      numeric(revenues[i]);
+      numeric(
+        revenues[i]
+      );
+
 
     if (
       x === null ||
       y === null
     ) {
+
       continue;
     }
 
+
     const logo =
-      logos[i] || "";
+      logos[i] ||
+      "";
+
 
     points.push({
-      x: x,
-      y: y,
+
+      x:
+        x,
+
+      y:
+        y,
+
       company:
-        companies[i] || "",
-      logo: logo,
+        companies[i] ||
+        "",
+
+      logo:
+        logo,
+
       hasLogo:
         Boolean(
           logo &&
           /^https?:\/\//i.test(
-            String(logo)
+            String(
+              logo
+            )
           )
         )
     });
   }
 
-  if (!points.length) {
+
+  if (
+    !points.length
+  ) {
+
     container.innerHTML =
       '<div class="message">No valid rows found.</div>';
+
     return;
   }
+
 
   /*
     ========================================
@@ -908,131 +1243,392 @@ function render() {
   */
 
   const width =
-    1400;
+    CHART_WIDTH;
+
 
   const height =
-    560;
+    CHART_HEIGHT;
+
 
   const margin = {
-    top: 50,
-    right: 45,
-    bottom: 65,
-    left: 95
+
+    top:
+      65,
+
+    right:
+      70,
+
+    bottom:
+      80,
+
+    left:
+      110
   };
+
 
   const plotWidth =
     width -
     margin.left -
     margin.right;
 
+
   const plotHeight =
     height -
     margin.top -
     margin.bottom;
 
+
+  const plotTop =
+    margin.top;
+
+
+  const plotBottom =
+    height -
+    margin.bottom;
+
+
   const xs =
     points.map(
-      point => point.x
+      point =>
+        point.x
     );
+
 
   const ys =
     points.map(
-      point => point.y
+      point =>
+        point.y
     );
 
+
   const scoreIsDecimal =
-    Math.max(...xs) <= 1.5;
+    Math.max(
+      ...xs
+    ) <=
+    1.5;
+
 
   let minX =
-    Math.min(...xs);
+    Math.min(
+      ...xs
+    );
+
 
   let maxX =
-    Math.max(...xs);
+    Math.max(
+      ...xs
+    );
 
-  let maxY =
-    Math.max(...ys);
+
+  const actualMaxY =
+    Math.max(
+      ...ys
+    );
+
+
+  /*
+    ========================================
+    X SCALE
+    ========================================
+  */
 
   const xPadding =
     Math.max(
-      (maxX - minX) * 0.07,
-      scoreIsDecimal ? 0.01 : 1
+      (
+        maxX -
+        minX
+      ) *
+      0.07,
+
+      scoreIsDecimal
+        ?
+        0.01
+        :
+        1
     );
 
-  minX -= xPadding;
-  maxX += xPadding;
 
-  if (scoreIsDecimal) {
+  minX -=
+    xPadding;
+
+
+  maxX +=
+    xPadding;
+
+
+  if (
+    scoreIsDecimal
+  ) {
+
     minX =
-      Math.max(0, minX);
+      Math.max(
+        0,
+        minX
+      );
+
 
     maxX =
-      Math.min(1, maxX);
+      Math.min(
+        1,
+        maxX
+      );
   }
 
-  maxY *= 1.08;
 
-  function sx(value) {
+  function sx(
+    value
+  ) {
+
     return (
       margin.left +
       (
         (
-          value - minX
+          value -
+          minX
         ) /
         (
-          maxX - minX || 1
+          maxX -
+          minX ||
+          1
         )
-      ) * plotWidth
+      ) *
+      plotWidth
     );
   }
 
-  function sy(value) {
-    return (
-      margin.top +
-      plotHeight -
-      (
-        value / maxY
-      ) * plotHeight
-    );
-  }
 
-  function formatScore(value) {
-    if (scoreIsDecimal) {
+  function formatScore(
+    value
+  ) {
+
+    if (
+      scoreIsDecimal
+    ) {
+
       return (
-        value * 100
-      ).toFixed(0) + "%";
+        value *
+        100
+      ).toFixed(
+        0
+      ) +
+      "%";
     }
 
-    return value.toFixed(0) + "%";
+
+    return value.toFixed(
+      0
+    ) +
+    "%";
   }
+
+
+  /*
+    ========================================
+    DYNAMIC COMPRESSED Y SCALE
+    ========================================
+
+    Sort AAV values from largest
+    to smallest.
+
+    The fourth-highest value becomes
+    the basis for the cutoff, meaning
+    the top three stay visible in the
+    compressed upper section.
+  */
+
+  const sortedY =
+    [...ys].sort(
+      (
+        a,
+        b
+      ) =>
+        b -
+        a
+    );
+
+
+  const fourthHighest =
+    sortedY.length >= 4
+      ?
+      sortedY[3]
+      :
+      actualMaxY;
+
+
+  /*
+    Add a small cushion above
+    the fourth-highest value.
+  */
+
+  let compressionCutoff =
+    fourthHighest *
+    1.15;
+
+
+  /*
+    Make sure cutoff doesn't
+    accidentally exceed max.
+  */
+
+  compressionCutoff =
+    Math.min(
+      compressionCutoff,
+      actualMaxY *
+      0.80
+    );
+
+
+  /*
+    If there isn't enough difference
+    between the top and the rest,
+    just use a normal linear scale.
+  */
+
+  const useCompressedScale =
+    sortedY.length >= 4 &&
+    actualMaxY >
+    compressionCutoff *
+    1.35;
+
+
+  const maxY =
+    actualMaxY *
+    1.06;
+
+
+  const lowerPlotHeight =
+    plotHeight *
+    LOWER_SECTION_SHARE;
+
+
+  const upperPlotHeight =
+    plotHeight -
+    lowerPlotHeight;
+
+
+  const breakY =
+    plotBottom -
+    lowerPlotHeight;
+
+
+  function sy(
+    value
+  ) {
+
+    /*
+      Normal linear scale fallback.
+    */
+
+    if (
+      !useCompressedScale
+    ) {
+
+      return (
+        plotBottom -
+        (
+          value /
+          maxY
+        ) *
+        plotHeight
+      );
+    }
+
+
+    /*
+      Lower section
+    */
+
+    if (
+      value <=
+      compressionCutoff
+    ) {
+
+      return (
+        plotBottom -
+        (
+          value /
+          compressionCutoff
+        ) *
+        lowerPlotHeight
+      );
+    }
+
+
+    /*
+      Compressed upper section
+    */
+
+    const upperFraction =
+      (
+        value -
+        compressionCutoff
+      ) /
+      (
+        maxY -
+        compressionCutoff
+      );
+
+
+    return (
+      breakY -
+      upperFraction *
+      upperPlotHeight
+    );
+  }
+
+
+  /*
+    ========================================
+    AVERAGES
+    ========================================
+  */
 
   const avgX =
     xs.reduce(
-      (sum, value) =>
-        sum + value,
+      (
+        sum,
+        value
+      ) =>
+        sum +
+        value,
       0
-    ) / xs.length;
+    ) /
+    xs.length;
+
 
   const avgY =
     ys.reduce(
-      (sum, value) =>
-        sum + value,
+      (
+        sum,
+        value
+      ) =>
+        sum +
+        value,
       0
-    ) / ys.length;
+    ) /
+    ys.length;
+
 
   /*
-    True positions only.
-    No spreading, no jitter.
+    Exact plotted coordinates.
   */
 
   points.forEach(
     point => {
+
       point.actualX =
-        sx(point.x);
+        sx(
+          point.x
+        );
+
 
       point.actualY =
-        sy(point.y);
+        sy(
+          point.y
+        );
     }
   );
+
 
   /*
     ========================================
@@ -1045,6 +1641,7 @@ function render() {
     <svg
       viewBox="0 0 ${width} ${height}"
     >
+
       <rect
         x="0"
         y="0"
@@ -1052,80 +1649,257 @@ function render() {
         height="${height}"
         fill="${backgroundColor}"
       />
-  `;
+    `;
 
-  svg += `
+
+  svg +=
+    `
     <text
       class="title"
-      x="18"
-      y="25"
+      x="20"
+      y="30"
     >
       Deal Score Plot in Relation to Revenue
     </text>
-  `;
+    `;
+
 
   /*
-    Y GRID
+    ========================================
+    Y GRID / TICKS
+    ========================================
   */
 
-  const ySteps = 8;
-
-  for (
-    let i = 0;
-    i <= ySteps;
-    i++
+  if (
+    useCompressedScale
   ) {
-    const value =
-      maxY * i / ySteps;
 
-    const y =
-      sy(value);
+    /*
+      Lower section ticks
+    */
 
-    svg += `
+    const lowerSteps =
+      6;
+
+
+    for (
+      let i = 0;
+      i <=
+      lowerSteps;
+      i++
+    ) {
+
+      const value =
+        compressionCutoff *
+        i /
+        lowerSteps;
+
+
+      const y =
+        sy(
+          value
+        );
+
+
+      svg +=
+        `
+        <line
+          class="grid"
+          x1="${margin.left}"
+          y1="${y}"
+          x2="${width - margin.right}"
+          y2="${y}"
+        />
+
+        <text
+          class="tick"
+          x="${margin.left - 12}"
+          y="${y + 4}"
+          text-anchor="end"
+        >
+          ${formatMoney(value)}
+        </text>
+        `;
+    }
+
+
+    /*
+      Upper section ticks
+    */
+
+    const upperSteps =
+      3;
+
+
+    for (
+      let i = 1;
+      i <=
+      upperSteps;
+      i++
+    ) {
+
+      const value =
+        compressionCutoff +
+        (
+          maxY -
+          compressionCutoff
+        ) *
+        i /
+        upperSteps;
+
+
+      const y =
+        sy(
+          value
+        );
+
+
+      svg +=
+        `
+        <line
+          class="grid"
+          x1="${margin.left}"
+          y1="${y}"
+          x2="${width - margin.right}"
+          y2="${y}"
+        />
+
+        <text
+          class="tick"
+          x="${margin.left - 12}"
+          y="${y + 4}"
+          text-anchor="end"
+        >
+          ${formatMoney(value)}
+        </text>
+        `;
+    }
+
+
+    /*
+      Visible break indicator.
+    */
+
+    svg +=
+      `
       <line
-        class="grid"
+        class="break-line"
         x1="${margin.left}"
-        y1="${y}"
+        y1="${breakY}"
         x2="${width - margin.right}"
-        y2="${y}"
+        y2="${breakY}"
+      />
+
+      <path
+        d="
+          M ${margin.left - 7} ${breakY - 5}
+          L ${margin.left + 2} ${breakY + 5}
+          L ${margin.left + 11} ${breakY - 5}
+        "
+        fill="none"
+        stroke="#666"
+        stroke-width="2"
       />
 
       <text
-        class="tick"
-        x="${margin.left - 10}"
-        y="${y + 4}"
-        text-anchor="end"
+        class="break-label"
+        x="${margin.left + 18}"
+        y="${breakY - 8}"
       >
-        ${formatMoney(value)}
+        Compressed AAV scale above ${formatMoney(compressionCutoff)}
       </text>
-    `;
+      `;
   }
 
+  else {
+
+    /*
+      Standard linear Y-axis fallback.
+    */
+
+    const ySteps =
+      8;
+
+
+    for (
+      let i = 0;
+      i <=
+      ySteps;
+      i++
+    ) {
+
+      const value =
+        maxY *
+        i /
+        ySteps;
+
+
+      const y =
+        sy(
+          value
+        );
+
+
+      svg +=
+        `
+        <line
+          class="grid"
+          x1="${margin.left}"
+          y1="${y}"
+          x2="${width - margin.right}"
+          y2="${y}"
+        />
+
+        <text
+          class="tick"
+          x="${margin.left - 12}"
+          y="${y + 4}"
+          text-anchor="end"
+        >
+          ${formatMoney(value)}
+        </text>
+        `;
+    }
+  }
+
+
   /*
-    X GRID
+    ========================================
+    X GRID / TICKS
+    ========================================
   */
 
-  const xSteps = 8;
+  const xSteps =
+    10;
+
 
   for (
     let i = 0;
-    i <= xSteps;
+    i <=
+    xSteps;
     i++
   ) {
+
     const value =
       minX +
       (
         (
-          maxX - minX
+          maxX -
+          minX
         ) *
         i /
         xSteps
       );
 
-    const x =
-      sx(value);
 
-    svg += `
+    const x =
+      sx(
+        value
+      );
+
+
+    svg +=
+      `
       <line
         class="grid"
         x1="${x}"
@@ -1137,19 +1911,23 @@ function render() {
       <text
         class="tick"
         x="${x}"
-        y="${height - margin.bottom + 22}"
+        y="${height - margin.bottom + 24}"
         text-anchor="middle"
       >
         ${formatScore(value)}
       </text>
-    `;
+      `;
   }
 
+
   /*
+    ========================================
     AXES
+    ========================================
   */
 
-  svg += `
+  svg +=
+    `
     <line
       class="axis"
       x1="${margin.left}"
@@ -1165,13 +1943,17 @@ function render() {
       x2="${margin.left}"
       y2="${height - margin.bottom}"
     />
-  `;
+    `;
+
 
   /*
+    ========================================
     AVERAGE LINES
+    ========================================
   */
 
-  svg += `
+  svg +=
+    `
     <line
       class="avg-line"
       x1="${sx(avgX)}"
@@ -1182,8 +1964,8 @@ function render() {
 
     <text
       class="avg-label"
-      x="${sx(avgX) + 5}"
-      y="${margin.top + 13}"
+      x="${sx(avgX) + 6}"
+      y="${margin.top + 14}"
     >
       Avg Deal Score
     </text>
@@ -1198,23 +1980,27 @@ function render() {
 
     <text
       class="avg-label"
-      x="${width - margin.right - 5}"
-      y="${sy(avgY) - 6}"
+      x="${width - margin.right - 6}"
+      y="${sy(avgY) - 7}"
       text-anchor="end"
     >
       Avg AAV Net
     </text>
-  `;
+    `;
+
 
   /*
+    ========================================
     AXIS TITLES
+    ========================================
   */
 
-  svg += `
+  svg +=
+    `
     <text
       class="axis-title"
       x="${margin.left + plotWidth / 2}"
-      y="${height - 15}"
+      y="${height - 18}"
       text-anchor="middle"
     >
       Deal Score
@@ -1223,37 +2009,49 @@ function render() {
     <text
       class="axis-title"
       transform="translate(
-        22
+        26
         ${margin.top + plotHeight / 2}
       ) rotate(-90)"
       text-anchor="middle"
     >
       AAV Net
     </text>
-  `;
+    `;
+
 
   /*
+    ========================================
     LOGOS + DOTS
+    ========================================
   */
 
   points.forEach(
-    function(point, index) {
+    function(
+      point,
+      index
+    ) {
 
-      svg += `
+      svg +=
+        `
         <g
           class="point"
           data-index="${index}"
         >
-      `;
+        `;
 
-      if (point.hasLogo) {
+
+      if (
+        point.hasLogo
+      ) {
 
         const displayLogo =
           getLogoUrl(
             point.logo
           );
 
-        svg += `
+
+        svg +=
+          `
           <image
             class="logo"
             x="${point.actualX - LOGO_SIZE / 2}"
@@ -1263,35 +2061,45 @@ function render() {
             href="${escapeHtml(displayLogo)}"
             preserveAspectRatio="xMidYMid meet"
           />
-        `;
+          `;
       }
 
       else {
-        svg += `
+
+        svg +=
+          `
           <circle
             class="dot"
             cx="${point.actualX}"
             cy="${point.actualY}"
             r="6"
           />
-        `;
+          `;
       }
 
-      svg += `
+
+      svg +=
+        `
         </g>
-      `;
+        `;
     }
   );
 
-  svg += `
+
+  svg +=
+    `
     </svg>
-  `;
+    `;
+
 
   container.innerHTML =
     svg;
 
+
   /*
+    ========================================
     TOOLTIPS
+    ========================================
   */
 
   const tooltip =
@@ -1299,12 +2107,15 @@ function render() {
       "tooltip"
     );
 
+
   container
     .querySelectorAll(
       ".point"
     )
     .forEach(
-      function(element) {
+      function(
+        element
+      ) {
 
         const point =
           points[
@@ -1313,9 +2124,13 @@ function render() {
             )
           ];
 
+
         element.addEventListener(
           "mousemove",
-          function(event) {
+
+          function(
+            event
+          ) {
 
             tooltip.innerHTML =
               `
@@ -1325,32 +2140,46 @@ function render() {
                   "Company"
                 )}
               </strong>
+
               <br>
+
               Deal Score:
               ${formatScore(
                 point.x
               )}
+
               <br>
+
               AAV Net:
               ${formatMoney(
                 point.y
               )}
               `;
 
+
             tooltip.style.display =
               "block";
 
+
             tooltip.style.left =
-              event.clientX + 12 + "px";
+              event.clientX +
+              12 +
+              "px";
+
 
             tooltip.style.top =
-              event.clientY + 12 + "px";
+              event.clientY +
+              12 +
+              "px";
           }
         );
 
+
         element.addEventListener(
           "mouseleave",
+
           function() {
+
             tooltip.style.display =
               "none";
           }
@@ -1359,6 +2188,7 @@ function render() {
     );
 }
 
+
 /*
   ========================================
   START
@@ -1366,17 +2196,27 @@ function render() {
 */
 
 client.config.subscribe(
-  function(nextConfig) {
+  function(
+    nextConfig
+  ) {
+
     config =
-      nextConfig || {};
+      nextConfig ||
+      {};
+
 
     connectData();
+
+
     render();
   }
 );
 
+
 config =
-  client.config.get() || {};
+  client.config.get() ||
+  {};
+
 
 connectData();
 
