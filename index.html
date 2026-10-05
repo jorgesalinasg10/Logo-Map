@@ -54,7 +54,7 @@
 
     .title {
       fill: #222;
-      font-size: 16px;
+      font-size: 17px;
       font-weight: 600;
     }
 
@@ -87,7 +87,7 @@
 
     .break-line {
       stroke: #8a8a8a;
-      stroke-width: 1.3;
+      stroke-width: 1.2;
       stroke-dasharray: 4 4;
     }
 
@@ -187,13 +187,12 @@ client.config.configureEditorPanel([
 
 const LOGO_SIZE = 90;
 
-const CHART_WIDTH = 1600;
-const CHART_HEIGHT = 800;
-
+const CHART_WIDTH = 2400;
+const CHART_HEIGHT = 700;
 
 /*
-  Give the lower-value section
-  most of the vertical chart space.
+  Lower AAV section gets most
+  of the vertical chart space.
 */
 
 const LOWER_SECTION_SHARE = 0.72;
@@ -217,7 +216,7 @@ let stopData = null;
 
 /*
   ========================================
-  LOGO NORMALIZATION CACHE
+  LOGO CACHE
   ========================================
 */
 
@@ -246,12 +245,15 @@ function escapeHtml(value) {
 
 function numeric(value) {
 
-  if (typeof value === "number") {
+  if (
+    typeof value === "number"
+  ) {
 
     return Number.isFinite(value)
       ? value
       : null;
   }
+
 
   if (
     value === null ||
@@ -261,12 +263,14 @@ function numeric(value) {
     return null;
   }
 
+
   const n =
     Number(
       String(value)
         .replace(/[$,%]/g, "")
         .trim()
     );
+
 
   return Number.isFinite(n)
     ? n
@@ -291,6 +295,13 @@ function formatMoney(value) {
   ========================================
   AUTOMATIC LOGO NORMALIZATION
   ========================================
+
+  Attempts to:
+
+  - remove excess transparent/white space
+  - center the actual visible logo
+  - normalize visual area
+  - preserve logo proportions
 */
 
 function normalizeLogo(url) {
@@ -339,25 +350,20 @@ function normalizeLogo(url) {
 
           const scale =
             Math.min(
-              maxProcessSize /
-              processWidth,
-
-              maxProcessSize /
-              processHeight
+              maxProcessSize / processWidth,
+              maxProcessSize / processHeight
             );
 
 
           processWidth =
             Math.round(
-              processWidth *
-              scale
+              processWidth * scale
             );
 
 
           processHeight =
             Math.round(
-              processHeight *
-              scale
+              processHeight * scale
             );
         }
 
@@ -631,36 +637,28 @@ function normalizeLogo(url) {
               if (
                 x < minX
               ) {
-
-                minX =
-                  x;
+                minX = x;
               }
 
 
               if (
                 x > maxX
               ) {
-
-                maxX =
-                  x;
+                maxX = x;
               }
 
 
               if (
                 y < minY
               ) {
-
-                minY =
-                  y;
+                minY = y;
               }
 
 
               if (
                 y > maxY
               ) {
-
-                maxY =
-                  y;
+                maxY = y;
               }
             }
           }
@@ -991,7 +989,7 @@ function getLogoUrl(
 
 /*
   ========================================
-  SIGMA DATA CONNECTION
+  SIGMA CONNECTION
   ========================================
 */
 
@@ -1109,6 +1107,10 @@ function render() {
       [];
 
 
+  /*
+    Logo / dot mode detection.
+  */
+
   const logoMode =
     logos.some(
       logo =>
@@ -1120,6 +1122,10 @@ function render() {
         )
     );
 
+
+  /*
+    Logo mode background.
+  */
 
   const backgroundColor =
     logoMode
@@ -1238,7 +1244,7 @@ function render() {
 
   /*
     ========================================
-    CHART SIZE
+    CHART DIMENSIONS
     ========================================
   */
 
@@ -1253,16 +1259,16 @@ function render() {
   const margin = {
 
     top:
-      65,
+      55,
 
     right:
-      70,
+      90,
 
     bottom:
       80,
 
     left:
-      110
+      120
   };
 
 
@@ -1278,14 +1284,16 @@ function render() {
     margin.bottom;
 
 
-  const plotTop =
-    margin.top;
-
-
   const plotBottom =
     height -
     margin.bottom;
 
+
+  /*
+    ========================================
+    DATA RANGES
+    ========================================
+  */
 
   const xs =
     points.map(
@@ -1338,7 +1346,7 @@ function render() {
         maxX -
         minX
       ) *
-      0.07,
+      0.05,
 
       scoreIsDecimal
         ?
@@ -1424,16 +1432,13 @@ function render() {
 
   /*
     ========================================
-    DYNAMIC COMPRESSED Y SCALE
+    COMPRESSED Y SCALE
     ========================================
 
-    Sort AAV values from largest
-    to smallest.
+    Top three AAV values remain visible.
 
-    The fourth-highest value becomes
-    the basis for the cutoff, meaning
-    the top three stay visible in the
-    compressed upper section.
+    Lower-value companies receive
+    much more vertical space.
   */
 
   const sortedY =
@@ -1455,20 +1460,10 @@ function render() {
       actualMaxY;
 
 
-  /*
-    Add a small cushion above
-    the fourth-highest value.
-  */
-
   let compressionCutoff =
     fourthHighest *
     1.15;
 
-
-  /*
-    Make sure cutoff doesn't
-    accidentally exceed max.
-  */
 
   compressionCutoff =
     Math.min(
@@ -1477,12 +1472,6 @@ function render() {
       0.80
     );
 
-
-  /*
-    If there isn't enough difference
-    between the top and the rest,
-    just use a normal linear scale.
-  */
 
   const useCompressedScale =
     sortedY.length >= 4 &&
@@ -1516,7 +1505,7 @@ function render() {
   ) {
 
     /*
-      Normal linear scale fallback.
+      Normal linear fallback.
     */
 
     if (
@@ -1535,7 +1524,7 @@ function render() {
 
 
     /*
-      Lower section
+      Lower AAV range.
     */
 
     if (
@@ -1555,7 +1544,7 @@ function render() {
 
 
     /*
-      Compressed upper section
+      Compressed upper AAV range.
     */
 
     const upperFraction =
@@ -1610,7 +1599,8 @@ function render() {
 
 
   /*
-    Exact plotted coordinates.
+    Exact data positions.
+    No jitter / spreading.
   */
 
   points.forEach(
@@ -1652,6 +1642,10 @@ function render() {
     `;
 
 
+  /*
+    TITLE
+  */
+
   svg +=
     `
     <text
@@ -1666,17 +1660,13 @@ function render() {
 
   /*
     ========================================
-    Y GRID / TICKS
+    Y GRID
     ========================================
   */
 
   if (
     useCompressedScale
   ) {
-
-    /*
-      Lower section ticks
-    */
 
     const lowerSteps =
       6;
@@ -1722,10 +1712,6 @@ function render() {
         `;
     }
 
-
-    /*
-      Upper section ticks
-    */
 
     const upperSteps =
       3;
@@ -1777,7 +1763,7 @@ function render() {
 
 
     /*
-      Visible break indicator.
+      Scale-break indicator.
     */
 
     svg +=
@@ -1812,10 +1798,6 @@ function render() {
   }
 
   else {
-
-    /*
-      Standard linear Y-axis fallback.
-    */
 
     const ySteps =
       8;
@@ -1865,12 +1847,12 @@ function render() {
 
   /*
     ========================================
-    X GRID / TICKS
+    X GRID
     ========================================
   */
 
   const xSteps =
-    10;
+    14;
 
 
   for (
@@ -2009,7 +1991,7 @@ function render() {
     <text
       class="axis-title"
       transform="translate(
-        26
+        28
         ${margin.top + plotHeight / 2}
       ) rotate(-90)"
       text-anchor="middle"
