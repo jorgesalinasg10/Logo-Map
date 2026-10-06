@@ -50,30 +50,30 @@
 
     .tick {
       fill: #666;
-      font-size: 11px;
+      font-size: 13px;
     }
 
     .title {
       fill: #222;
-      font-size: 17px;
+      font-size: 22px;
       font-weight: 600;
     }
 
     .axis-title {
       fill: #333;
-      font-size: 12px;
+      font-size: 15px;
       font-weight: 600;
     }
 
     .avg-line {
       stroke: #777;
-      stroke-width: 1.3;
-      stroke-dasharray: 5 4;
+      stroke-width: 1.4;
+      stroke-dasharray: 6 5;
     }
 
     .avg-label {
       fill: #555;
-      font-size: 10px;
+      font-size: 11px;
     }
 
     .dot {
@@ -176,13 +176,13 @@ client.config.configureEditorPanel([
 */
 
 const LOGO_SIZE =
-  90;
+  100;
 
 const CHART_WIDTH =
-  2400;
+  2200;
 
 const CHART_HEIGHT =
-  700;
+  1000;
 
 
 /*
@@ -284,10 +284,6 @@ function formatMoney(value) {
   ========================================
   AUTOMATIC LOGO NORMALIZATION
   ========================================
-
-  Removes excess transparent / white
-  space and attempts to make logos feel
-  more consistent in visual size.
 */
 
 function normalizeLogo(url) {
@@ -330,11 +326,6 @@ function normalizeLogo(url) {
         let processHeight =
           img.naturalHeight;
 
-
-        /*
-          Reduce very large source images
-          before analyzing them.
-        */
 
         if (
           processWidth > maxProcessSize ||
@@ -448,11 +439,6 @@ function normalizeLogo(url) {
         }
 
 
-        /*
-          Estimate background using
-          the four corners.
-        */
-
         const corners = [
 
           getPixel(
@@ -563,10 +549,6 @@ function normalizeLogo(url) {
           }
 
 
-          /*
-            Transparent PNG.
-          */
-
           if (
             backgroundTransparent
           ) {
@@ -574,11 +556,6 @@ function normalizeLogo(url) {
             return true;
           }
 
-
-          /*
-            Compare pixel against
-            estimated background.
-          */
 
           const dr =
             r -
@@ -607,10 +584,6 @@ function normalizeLogo(url) {
             28;
         }
 
-
-        /*
-          Find visible logo boundaries.
-        */
 
         for (
           let y = 0;
@@ -703,11 +676,6 @@ function normalizeLogo(url) {
         }
 
 
-        /*
-          If detection fails,
-          use the original image.
-        */
-
         if (
           maxX < minX ||
           maxY < minY
@@ -742,10 +710,6 @@ function normalizeLogo(url) {
           minY +
           1;
 
-
-        /*
-          Tiny safety padding.
-        */
 
         const paddingX =
           Math.round(
@@ -844,11 +808,6 @@ function normalizeLogo(url) {
           cropHeight;
 
 
-        /*
-          Target approximately equal
-          visual area between logos.
-        */
-
         const targetArea =
           outputSize *
           outputSize *
@@ -868,11 +827,6 @@ function normalizeLogo(url) {
             aspectRatio
           );
 
-
-        /*
-          Keep extremely wide/tall
-          logos inside the box.
-        */
 
         const maxDimension =
           outputSize *
@@ -1165,11 +1119,11 @@ function render() {
       [];
 
 
-  /*
-    ========================================
-    LOGO / DOT MODE
-    ========================================
-  */
+/*
+  ========================================
+  LOGO / DOT MODE
+  ========================================
+*/
 
   const logoMode =
     logos.some(
@@ -1298,11 +1252,11 @@ function render() {
   }
 
 
-  /*
-    ========================================
-    CHART SIZE
-    ========================================
-  */
+/*
+  ========================================
+  CHART SIZE
+  ========================================
+*/
 
   const width =
     CHART_WIDTH;
@@ -1315,16 +1269,16 @@ function render() {
   const margin = {
 
     top:
-      55,
+      70,
 
     right:
-      90,
+      100,
 
     bottom:
-      80,
+      95,
 
     left:
-      120
+      135
   };
 
 
@@ -1345,11 +1299,11 @@ function render() {
     margin.bottom;
 
 
-  /*
-    ========================================
-    DATA RANGES
-    ========================================
-  */
+/*
+  ========================================
+  DATA RANGES
+  ========================================
+*/
 
   const xs =
     points.map(
@@ -1390,11 +1344,11 @@ function render() {
     );
 
 
-  /*
-    ========================================
-    X SCALE
-    ========================================
-  */
+/*
+  ========================================
+  X SCALE
+  ========================================
+*/
 
   const xPadding =
     Math.max(
@@ -1402,13 +1356,13 @@ function render() {
         maxX -
         minX
       ) *
-      0.05,
+      0.04,
 
       scoreIsDecimal
         ?
-        0.01
+        0.008
         :
-        1
+        0.8
     );
 
 
@@ -1486,18 +1440,11 @@ function render() {
   }
 
 
-  /*
-    ========================================
-    SQRT AAV SCALE
-    ========================================
-
-    This mirrors the native Sigma
-    square-root Y-axis behavior.
-
-    Lower AAV values receive much more
-    vertical separation while top AAV
-    values remain visible.
-  */
+/*
+  ========================================
+  SQRT AAV SCALE
+  ========================================
+*/
 
   const maxY =
     actualMaxY *
@@ -1530,11 +1477,11 @@ function render() {
   }
 
 
-  /*
-    ========================================
-    AVERAGES
-    ========================================
-  */
+/*
+  ========================================
+  AVERAGES
+  ========================================
+*/
 
   const avgX =
     xs.reduce(
@@ -1562,11 +1509,9 @@ function render() {
     ys.length;
 
 
-  /*
-    Exact positions.
-
-    No logo jitter or artificial movement.
-  */
+/*
+  Exact positions.
+*/
 
   points.forEach(
     point => {
@@ -1585,11 +1530,11 @@ function render() {
   );
 
 
-  /*
-    ========================================
-    BUILD SVG
-    ========================================
-  */
+/*
+  ========================================
+  BUILD SVG
+  ========================================
+*/
 
   let svg =
     `
@@ -1607,33 +1552,27 @@ function render() {
     `;
 
 
-  /*
-    ========================================
-    TITLE
-    ========================================
-  */
+/*
+  TITLE
+*/
 
   svg +=
     `
     <text
       class="title"
-      x="20"
-      y="30"
+      x="25"
+      y="38"
     >
       Deal Score Plot in Relation to Revenue
     </text>
     `;
 
 
-  /*
-    ========================================
-    Y GRID
-    ========================================
-
-    Labels remain actual dollar values,
-    but their positions follow the
-    square-root scale.
-  */
+/*
+  ========================================
+  Y GRID
+  ========================================
+*/
 
   const ySteps =
     8;
@@ -1670,8 +1609,8 @@ function render() {
 
       <text
         class="tick"
-        x="${margin.left - 12}"
-        y="${y + 4}"
+        x="${margin.left - 15}"
+        y="${y + 5}"
         text-anchor="end"
       >
         ${formatMoney(value)}
@@ -1680,14 +1619,14 @@ function render() {
   }
 
 
-  /*
-    ========================================
-    X GRID
-    ========================================
-  */
+/*
+  ========================================
+  X GRID
+  ========================================
+*/
 
   const xSteps =
-    14;
+    12;
 
 
   for (
@@ -1728,7 +1667,7 @@ function render() {
       <text
         class="tick"
         x="${x}"
-        y="${height - margin.bottom + 24}"
+        y="${height - margin.bottom + 28}"
         text-anchor="middle"
       >
         ${formatScore(value)}
@@ -1737,11 +1676,11 @@ function render() {
   }
 
 
-  /*
-    ========================================
-    AXES
-    ========================================
-  */
+/*
+  ========================================
+  AXES
+  ========================================
+*/
 
   svg +=
     `
@@ -1763,11 +1702,11 @@ function render() {
     `;
 
 
-  /*
-    ========================================
-    AVERAGE REFERENCE LINES
-    ========================================
-  */
+/*
+  ========================================
+  AVERAGE REFERENCE LINES
+  ========================================
+*/
 
   svg +=
     `
@@ -1781,8 +1720,8 @@ function render() {
 
     <text
       class="avg-label"
-      x="${sx(avgX) + 6}"
-      y="${margin.top + 14}"
+      x="${sx(avgX) + 8}"
+      y="${margin.top + 17}"
     >
       Avg Deal Score
     </text>
@@ -1797,8 +1736,8 @@ function render() {
 
     <text
       class="avg-label"
-      x="${width - margin.right - 6}"
-      y="${sy(avgY) - 7}"
+      x="${width - margin.right - 8}"
+      y="${sy(avgY) - 9}"
       text-anchor="end"
     >
       Avg AAV Net
@@ -1806,18 +1745,18 @@ function render() {
     `;
 
 
-  /*
-    ========================================
-    AXIS TITLES
-    ========================================
-  */
+/*
+  ========================================
+  AXIS TITLES
+  ========================================
+*/
 
   svg +=
     `
     <text
       class="axis-title"
       x="${margin.left + plotWidth / 2}"
-      y="${height - 18}"
+      y="${height - 22}"
       text-anchor="middle"
     >
       Deal Score
@@ -1826,7 +1765,7 @@ function render() {
     <text
       class="axis-title"
       transform="translate(
-        28
+        32
         ${margin.top + plotHeight / 2}
       ) rotate(-90)"
       text-anchor="middle"
@@ -1836,11 +1775,11 @@ function render() {
     `;
 
 
-  /*
-    ========================================
-    LOGOS + DOTS
-    ========================================
-  */
+/*
+  ========================================
+  LOGOS + DOTS
+  ========================================
+*/
 
   points.forEach(
     function(
@@ -1890,7 +1829,7 @@ function render() {
             class="dot"
             cx="${point.actualX}"
             cy="${point.actualY}"
-            r="6"
+            r="7"
           />
           `;
       }
@@ -1914,11 +1853,11 @@ function render() {
     svg;
 
 
-  /*
-    ========================================
-    TOOLTIPS
-    ========================================
-  */
+/*
+  ========================================
+  TOOLTIPS
+  ========================================
+*/
 
   const tooltip =
     document.getElementById(
