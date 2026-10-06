@@ -17,6 +17,7 @@
   </script>
 
   <style>
+
     html,
     body {
       margin: 0;
@@ -85,18 +86,6 @@
       cursor: pointer;
     }
 
-    .break-line {
-      stroke: #8a8a8a;
-      stroke-width: 1.2;
-      stroke-dasharray: 4 4;
-    }
-
-    .break-label {
-      fill: #666;
-      font-size: 10px;
-      font-style: italic;
-    }
-
     #tooltip {
       position: fixed;
       display: none;
@@ -117,6 +106,7 @@
       height: 100%;
       color: #666;
     }
+
   </style>
 </head>
 
@@ -185,17 +175,14 @@ client.config.configureEditorPanel([
   ========================================
 */
 
-const LOGO_SIZE = 90;
+const LOGO_SIZE =
+  90;
 
-const CHART_WIDTH = 2400;
-const CHART_HEIGHT = 700;
+const CHART_WIDTH =
+  2400;
 
-/*
-  Lower AAV section gets most
-  of the vertical chart space.
-*/
-
-const LOWER_SECTION_SHARE = 0.72;
+const CHART_HEIGHT =
+  700;
 
 
 /*
@@ -209,9 +196,11 @@ let config =
 
 let data = {};
 
-let currentSource = null;
+let currentSource =
+  null;
 
-let stopData = null;
+let stopData =
+  null;
 
 
 /*
@@ -296,12 +285,9 @@ function formatMoney(value) {
   AUTOMATIC LOGO NORMALIZATION
   ========================================
 
-  Attempts to:
-
-  - remove excess transparent/white space
-  - center the actual visible logo
-  - normalize visual area
-  - preserve logo proportions
+  Removes excess transparent / white
+  space and attempts to make logos feel
+  more consistent in visual size.
 */
 
 function normalizeLogo(url) {
@@ -315,7 +301,9 @@ function normalizeLogo(url) {
   }
 
 
-  logosBeingProcessed.add(url);
+  logosBeingProcessed.add(
+    url
+  );
 
 
   const img =
@@ -343,6 +331,11 @@ function normalizeLogo(url) {
           img.naturalHeight;
 
 
+        /*
+          Reduce very large source images
+          before analyzing them.
+        */
+
         if (
           processWidth > maxProcessSize ||
           processHeight > maxProcessSize
@@ -350,20 +343,25 @@ function normalizeLogo(url) {
 
           const scale =
             Math.min(
-              maxProcessSize / processWidth,
-              maxProcessSize / processHeight
+              maxProcessSize /
+              processWidth,
+
+              maxProcessSize /
+              processHeight
             );
 
 
           processWidth =
             Math.round(
-              processWidth * scale
+              processWidth *
+              scale
             );
 
 
           processHeight =
             Math.round(
-              processHeight * scale
+              processHeight *
+              scale
             );
         }
 
@@ -433,16 +431,27 @@ function normalizeLogo(url) {
               pixels[index],
 
             g:
-              pixels[index + 1],
+              pixels[
+                index + 1
+              ],
 
             b:
-              pixels[index + 2],
+              pixels[
+                index + 2
+              ],
 
             a:
-              pixels[index + 3]
+              pixels[
+                index + 3
+              ]
           };
         }
 
+
+        /*
+          Estimate background using
+          the four corners.
+        */
 
         const corners = [
 
@@ -482,7 +491,8 @@ function normalizeLogo(url) {
 
 
         const backgroundTransparent =
-          averageCornerAlpha < 50;
+          averageCornerAlpha <
+          50;
 
 
         const backgroundColor = {
@@ -553,6 +563,10 @@ function normalizeLogo(url) {
           }
 
 
+          /*
+            Transparent PNG.
+          */
+
           if (
             backgroundTransparent
           ) {
@@ -560,6 +574,11 @@ function normalizeLogo(url) {
             return true;
           }
 
+
+          /*
+            Compare pixel against
+            estimated background.
+          */
 
           const dr =
             r -
@@ -584,9 +603,14 @@ function normalizeLogo(url) {
             );
 
 
-          return distance > 28;
+          return distance >
+            28;
         }
 
+
+        /*
+          Find visible logo boundaries.
+        */
 
         for (
           let y = 0;
@@ -614,15 +638,21 @@ function normalizeLogo(url) {
 
 
             const g =
-              pixels[index + 1];
+              pixels[
+                index + 1
+              ];
 
 
             const b =
-              pixels[index + 2];
+              pixels[
+                index + 2
+              ];
 
 
             const a =
-              pixels[index + 3];
+              pixels[
+                index + 3
+              ];
 
 
             if (
@@ -637,33 +667,46 @@ function normalizeLogo(url) {
               if (
                 x < minX
               ) {
-                minX = x;
+
+                minX =
+                  x;
               }
 
 
               if (
                 x > maxX
               ) {
-                maxX = x;
+
+                maxX =
+                  x;
               }
 
 
               if (
                 y < minY
               ) {
-                minY = y;
+
+                minY =
+                  y;
               }
 
 
               if (
                 y > maxY
               ) {
-                maxY = y;
+
+                maxY =
+                  y;
               }
             }
           }
         }
 
+
+        /*
+          If detection fails,
+          use the original image.
+        */
 
         if (
           maxX < minX ||
@@ -699,6 +742,10 @@ function normalizeLogo(url) {
           minY +
           1;
 
+
+        /*
+          Tiny safety padding.
+        */
 
         const paddingX =
           Math.round(
@@ -762,6 +809,12 @@ function normalizeLogo(url) {
           1;
 
 
+        /*
+          ========================================
+          VISUAL AREA NORMALIZATION
+          ========================================
+        */
+
         const outputSize =
           500;
 
@@ -786,16 +839,15 @@ function normalizeLogo(url) {
           );
 
 
-        /*
-          ========================================
-          VISUAL AREA NORMALIZATION
-          ========================================
-        */
-
         const aspectRatio =
           cropWidth /
           cropHeight;
 
+
+        /*
+          Target approximately equal
+          visual area between logos.
+        */
 
         const targetArea =
           outputSize *
@@ -816,6 +868,11 @@ function normalizeLogo(url) {
             aspectRatio
           );
 
+
+        /*
+          Keep extremely wide/tall
+          logos inside the box.
+        */
 
         const maxDimension =
           outputSize *
@@ -918,6 +975,7 @@ function normalizeLogo(url) {
 
         render();
       }
+
 
       catch (
         error
@@ -1108,7 +1166,9 @@ function render() {
 
 
   /*
-    Logo / dot mode detection.
+    ========================================
+    LOGO / DOT MODE
+    ========================================
   */
 
   const logoMode =
@@ -1122,10 +1182,6 @@ function render() {
         )
     );
 
-
-  /*
-    Logo mode background.
-  */
 
   const backgroundColor =
     logoMode
@@ -1244,7 +1300,7 @@ function render() {
 
   /*
     ========================================
-    CHART DIMENSIONS
+    CHART SIZE
     ========================================
   */
 
@@ -1432,136 +1488,44 @@ function render() {
 
   /*
     ========================================
-    COMPRESSED Y SCALE
+    SQRT AAV SCALE
     ========================================
 
-    Top three AAV values remain visible.
+    This mirrors the native Sigma
+    square-root Y-axis behavior.
 
-    Lower-value companies receive
-    much more vertical space.
+    Lower AAV values receive much more
+    vertical separation while top AAV
+    values remain visible.
   */
-
-  const sortedY =
-    [...ys].sort(
-      (
-        a,
-        b
-      ) =>
-        b -
-        a
-    );
-
-
-  const fourthHighest =
-    sortedY.length >= 4
-      ?
-      sortedY[3]
-      :
-      actualMaxY;
-
-
-  let compressionCutoff =
-    fourthHighest *
-    1.15;
-
-
-  compressionCutoff =
-    Math.min(
-      compressionCutoff,
-      actualMaxY *
-      0.80
-    );
-
-
-  const useCompressedScale =
-    sortedY.length >= 4 &&
-    actualMaxY >
-    compressionCutoff *
-    1.35;
-
 
   const maxY =
     actualMaxY *
     1.06;
 
 
-  const lowerPlotHeight =
-    plotHeight *
-    LOWER_SECTION_SHARE;
-
-
-  const upperPlotHeight =
-    plotHeight -
-    lowerPlotHeight;
-
-
-  const breakY =
-    plotBottom -
-    lowerPlotHeight;
-
-
   function sy(
     value
   ) {
 
-    /*
-      Normal linear fallback.
-    */
-
-    if (
-      !useCompressedScale
-    ) {
-
-      return (
-        plotBottom -
-        (
-          value /
-          maxY
-        ) *
-        plotHeight
-      );
-    }
-
-
-    /*
-      Lower AAV range.
-    */
-
-    if (
-      value <=
-      compressionCutoff
-    ) {
-
-      return (
-        plotBottom -
-        (
-          value /
-          compressionCutoff
-        ) *
-        lowerPlotHeight
-      );
-    }
-
-
-    /*
-      Compressed upper AAV range.
-    */
-
-    const upperFraction =
-      (
-        value -
-        compressionCutoff
-      ) /
-      (
-        maxY -
-        compressionCutoff
+    const safeValue =
+      Math.max(
+        0,
+        value
       );
 
 
     return (
-      breakY -
-      upperFraction *
-      upperPlotHeight
+      plotBottom -
+      (
+        Math.sqrt(
+          safeValue
+        ) /
+        Math.sqrt(
+          maxY
+        )
+      ) *
+      plotHeight
     );
   }
 
@@ -1599,8 +1563,9 @@ function render() {
 
 
   /*
-    Exact data positions.
-    No jitter / spreading.
+    Exact positions.
+
+    No logo jitter or artificial movement.
   */
 
   points.forEach(
@@ -1643,7 +1608,9 @@ function render() {
 
 
   /*
+    ========================================
     TITLE
+    ========================================
   */
 
   svg +=
@@ -1662,186 +1629,54 @@ function render() {
     ========================================
     Y GRID
     ========================================
+
+    Labels remain actual dollar values,
+    but their positions follow the
+    square-root scale.
   */
 
-  if (
-    useCompressedScale
+  const ySteps =
+    8;
+
+
+  for (
+    let i = 0;
+    i <=
+    ySteps;
+    i++
   ) {
 
-    const lowerSteps =
-      6;
+    const value =
+      maxY *
+      i /
+      ySteps;
 
 
-    for (
-      let i = 0;
-      i <=
-      lowerSteps;
-      i++
-    ) {
+    const y =
+      sy(
+        value
+      );
 
-      const value =
-        compressionCutoff *
-        i /
-        lowerSteps;
-
-
-      const y =
-        sy(
-          value
-        );
-
-
-      svg +=
-        `
-        <line
-          class="grid"
-          x1="${margin.left}"
-          y1="${y}"
-          x2="${width - margin.right}"
-          y2="${y}"
-        />
-
-        <text
-          class="tick"
-          x="${margin.left - 12}"
-          y="${y + 4}"
-          text-anchor="end"
-        >
-          ${formatMoney(value)}
-        </text>
-        `;
-    }
-
-
-    const upperSteps =
-      3;
-
-
-    for (
-      let i = 1;
-      i <=
-      upperSteps;
-      i++
-    ) {
-
-      const value =
-        compressionCutoff +
-        (
-          maxY -
-          compressionCutoff
-        ) *
-        i /
-        upperSteps;
-
-
-      const y =
-        sy(
-          value
-        );
-
-
-      svg +=
-        `
-        <line
-          class="grid"
-          x1="${margin.left}"
-          y1="${y}"
-          x2="${width - margin.right}"
-          y2="${y}"
-        />
-
-        <text
-          class="tick"
-          x="${margin.left - 12}"
-          y="${y + 4}"
-          text-anchor="end"
-        >
-          ${formatMoney(value)}
-        </text>
-        `;
-    }
-
-
-    /*
-      Scale-break indicator.
-    */
 
     svg +=
       `
       <line
-        class="break-line"
+        class="grid"
         x1="${margin.left}"
-        y1="${breakY}"
+        y1="${y}"
         x2="${width - margin.right}"
-        y2="${breakY}"
-      />
-
-      <path
-        d="
-          M ${margin.left - 7} ${breakY - 5}
-          L ${margin.left + 2} ${breakY + 5}
-          L ${margin.left + 11} ${breakY - 5}
-        "
-        fill="none"
-        stroke="#666"
-        stroke-width="2"
+        y2="${y}"
       />
 
       <text
-        class="break-label"
-        x="${margin.left + 18}"
-        y="${breakY - 8}"
+        class="tick"
+        x="${margin.left - 12}"
+        y="${y + 4}"
+        text-anchor="end"
       >
-        Compressed AAV scale above ${formatMoney(compressionCutoff)}
+        ${formatMoney(value)}
       </text>
       `;
-  }
-
-  else {
-
-    const ySteps =
-      8;
-
-
-    for (
-      let i = 0;
-      i <=
-      ySteps;
-      i++
-    ) {
-
-      const value =
-        maxY *
-        i /
-        ySteps;
-
-
-      const y =
-        sy(
-          value
-        );
-
-
-      svg +=
-        `
-        <line
-          class="grid"
-          x1="${margin.left}"
-          y1="${y}"
-          x2="${width - margin.right}"
-          y2="${y}"
-        />
-
-        <text
-          class="tick"
-          x="${margin.left - 12}"
-          y="${y + 4}"
-          text-anchor="end"
-        >
-          ${formatMoney(value)}
-        </text>
-        `;
-    }
   }
 
 
@@ -1930,7 +1765,7 @@ function render() {
 
   /*
     ========================================
-    AVERAGE LINES
+    AVERAGE REFERENCE LINES
     ========================================
   */
 
@@ -2045,6 +1880,7 @@ function render() {
           />
           `;
       }
+
 
       else {
 
@@ -2206,4 +2042,3 @@ connectData();
 
 </body>
 </html>
- 
